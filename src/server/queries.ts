@@ -198,8 +198,11 @@ export async function dashboardStats() {
     const ok = rows.find((r) => r._id === "resolved")?.n ?? 0;
     return total ? (ok / total) * 100 : null;
   };
-  const thisRate = rate(thisWeek);
-  const prevRate = rate(prevWeek);
+  const count = (rows: { n: number }[]) => rows.reduce((s, r) => s + r.n, 0);
+  const MIN_SAMPLE = 10; // below this a percentage (or a week-on-week change) is noise
+  const thisN = count(thisWeek);
+  const thisRate = thisN >= MIN_SAMPLE ? rate(thisWeek) : null;
+  const prevRate = count(prevWeek) >= MIN_SAMPLE ? rate(prevWeek) : null;
 
   const total30 = recent.reduce((s, r) => s + r.n, 0);
   const named = recent.filter((r) => r._id).sort((a, b) => b.n - a.n);
@@ -216,6 +219,7 @@ export async function dashboardStats() {
     escalations: esc,
     topics: rows.map((r) => ({ label: r.label, share: total30 ? Math.round((r.n / total30) * 100) : 0, width: Math.round((r.n / max) * 100) })),
     aiResolveRate: thisRate === null ? null : Math.round(thisRate),
+    aiResolveSample: thisN,
     aiResolveDelta: thisRate !== null && prevRate !== null ? Math.round(thisRate - prevRate) : null,
     avgRating: ratedAgg[0] ? Math.round(ratedAgg[0].avg * 10) / 10 : null,
     ratingCount: ratedAgg[0]?.n ?? 0,

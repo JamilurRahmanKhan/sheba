@@ -181,4 +181,14 @@ describe.skipIf(!up)("integration (MongoDB)", () => {
       expect(await attempt("t:win", 1, 300)).toBe("ok");
     });
   });
+
+  it("dashboard hides percentages and week-on-week change when the sample is too small", async () => {
+    const d = await m.q.dashboardStats();
+    expect(d.aiResolveSample).toBeLessThan(10 + 100);
+    if (d.aiResolveSample < 10) {
+      expect(d.aiResolveRate).toBeNull();
+      expect(d.aiResolveDelta).toBeNull();
+    }
+    expect(d.conversationsToday).toBeGreaterThan(0);
+  });
 });

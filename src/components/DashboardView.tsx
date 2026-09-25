@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import useSWR from "swr";
 import { api, errorMessage, fetcher, qs } from "@/lib/api";
-import { bn } from "@/lib/conversations";
+import { bn, fmtDateTime } from "@/lib/conversations";
 import { STATUS_META, type EscStatus, type Escalation } from "@/lib/data";
 
 type Filter = "all" | EscStatus;
@@ -14,6 +14,7 @@ interface Dashboard {
   escalations: Record<EscStatus, number>;
   topics: { label: string; share: number; width: number }[];
   aiResolveRate: number | null;
+  aiResolveSample: number;
   aiResolveDelta: number | null;
   avgRating: number | null;
   ratingCount: number;
@@ -27,8 +28,7 @@ export function DashboardView() {
   const { data: list, mutate } = useSWR<{ items: Escalation[] }>(listKey, fetcher, { refreshInterval: 8_000, keepPreviousData: true });
 
   const e = stats?.escalations;
-  const cards: { key: Filter; label: string; color: string; value?: number }[] = [
-    { key: "all", label: "মোট কথোপকথন (আজ)", color: "var(--accent)", value: stats?.conversationsToday },
+  const cards: { key: Exclude<Filter, "all">; label: string; color: string; value?: number }[] = [
     { key: "new", label: "নতুন হস্তান্তর", color: "var(--info)", value: e?.new },
     { key: "ongoing", label: "চলমান", color: "var(--warn)", value: e?.ongoing },
     { key: "resolved", label: "সমাধান হয়েছে", color: "var(--success)", value: e?.resolved },
@@ -49,7 +49,7 @@ export function DashboardView() {
     <>
       <div className="page-head">
         <h1>চ্যাটবট ড্যাশবোর্ড</h1>
-        <p>আজকের কার্যক্রম ও কর্মক্ষমতার সার-সংক্ষেপ। কার্ডে ক্লিক করে নিচের তালিকা ফিল্টার করুন।</p>
+        <p>আজকের কার্যক্রম ও কর্মক্ষমতার সার-সংক্ষেপ। হস্তান্তরের কার্ডে ক্লিক করে নিচের তালিকা ফিল্টার করুন; আবার ক্লিক করলে ফিল্টার সরে যাবে।</p>
       </div>
 
       {error && (
@@ -59,8 +59,14 @@ export function DashboardView() {
       )}
 
       <div className="stat-grid">
+        <div className="statcard" style={{ cursor: "default" }}>
+          <div className="label">আজকের কথোপকথন</div>
+          <div className="num" style={{ color: "var(--accent)" }}>
+            {stats ? bn(stats.conversationsToday) : "—"}
+          </div>
+        </div>
         {cards.map((s) => (
-          <button key={s.key} type="button" className="statcard" aria-pressed={filter === s.key} onClick={() => setFilter(s.key)}>
+          <button key={s.key} type="button" className="statcard" aria-pressed={filter === s.key} onClick={() => setFilter(filter === s.key ? "all" : s.key)} title={filter === s.key ? "ফিল্টার সরান" : "তালিকা ফিল্টার করুন"}>
             <div className="label">{s.label}</div>
             <div className="num" style={{ color: s.color }}>
               {s.value === undefined ? "—" : bn(s.value)}
@@ -87,6 +93,11 @@ export function DashboardView() {
           <div className="tile">
             <div className="tl">AI দ্বারা সমাধান হার (গত ৭ দিন)</div>
             <div className="tv">{stats?.aiResolveRate == null ? "—" : `${bn(stats.aiResolveRate)}%`}</div>
+            {stats && stats.aiResolveRate == null && (
+              <div className="td" style={{ color: "var(--text-2)" }}>
+                নমুনা কম ({bn(stats.aiResolveSample)}টি কথোপকথন) — কমপক্ষে ১০টি হলে দেখানো হবে
+              </div>
+            )}
             {stats?.aiResolveDelta != null && (
               <div className="td" style={stats.aiResolveDelta < 0 ? { color: "var(--danger)" } : undefined}>
                 আগের সপ্তাহের তুলনায় {stats.aiResolveDelta >= 0 ? "+" : "−"}
@@ -130,7 +141,7 @@ export function DashboardView() {
                   <tr key={row.id}>
                     <td style={{ maxWidth: 260 }}>{row.question}</td>
                     <td>{row.citizen}</td>
-                    <td style={{ color: "var(--text-2)" }}>{row.time}</td>
+                    <td style={{ color: "var(--text-2)", whiteSpace: "nowrap" }}>{fmtDateTime(row.createdAt)}</td>
                     <td style={{ color: "var(--text-2)" }}>{row.dept}</td>
                     <td>
                       <span className="badge" style={{ background: meta.bg, color: meta.color }}>
