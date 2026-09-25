@@ -97,3 +97,9 @@
 - Sessions: no server-side revocation list beyond deactivating the account; no MFA.
 - Search uses regex over `searchText` (fine for thousands of chats; use Atlas Search beyond that).
 - Old phase-1–4 notes above that mention `localStorage` are historical.
+
+## Phase 6 — Post-deploy hardening (2026-09-25)
+
+- **Found on the live Vercel site:** `POST /api/auth/login` returned 500 even for unknown emails. Cause class: first-admin bootstrap throwing on a bad `ADMIN_*` env value before any credential check. Fix: bootstrap errors are logged and no longer break login; new protected `GET /api/health` (Bearer `CRON_SECRET`) reports DB connectivity + config problems by name only. Reproduced locally with a too-short admin password (500 → 401 + precise health message).
+- **Test suite added (Vitest, 39 tests):** unit tests (bot, settings, retention, CSV, seed consistency, config checks) + MongoDB integration tests (test DB `seba_sohayok_test`, auto-skipped when no DB). Verified the suite fails when the bot threshold is deliberately broken.
+- **Real bug found by the integration tests:** concurrent escalation from one chat created N cases (the atomic "claim" filtered on `escalationId: null` but set only `escalated: true`, so every concurrent request matched). Now the claim flips `escalated` false→true (single winner); losers wait briefly for the winner's case id; a crashed claimant is recovered (claim released and retried once). Regression test: 5 simultaneous escalations → 1 case.

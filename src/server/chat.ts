@@ -149,17 +149,33 @@ export async function pollConversation(id: string, token: string, after: number)
   };
 }
 
-export async function escalateConversation(id: string, token: string) {
+export async function escalateConversation(id: string, token: string, retried = false): Promise<{ inHours: boolean; escalationId?: string | null; total: number; messages: ChatMessageDto[] }> {
   const doc = await loadOwned(id, token);
   const settings = await getSettings();
   if (!settings.handoff.enabled) throw new ApiError(403, "মানব প্রতিনিধির হস্তান্তর এখন বন্ধ আছে।");
   const inHours = withinWorkingHours(settings.hours);
-  if (doc.escalationId) return { inHours, escalationId: doc.escalationId, total: doc.messages.length, messages: [] as ChatMessageDto[] };
+  if (doc.escalationId) return { inHours, escalationId: doc.escalationId, total: doc.messages.length, messages: [] };
 
   const conversations = await col.conversations();
-  // Claim the conversation atomically so a double click can never create two cases.
-  const claim = await conversations.findOneAndUpdate(({ _id: id, escalationId: null } as unknown as Filter<ConversationDoc>), { $set: { escalated: true } }, { returnDocument: "after" });
-  if (!claim) return { inHours, escalationId: doc.escalationId, total: doc.messages.length, messages: [] as ChatMessageDto[] };
+  // Claim the conversation atomically by flipping `escalated` false→true: exactly one concurrent request wins,
+  // so several simultaneous clicks/requests can never create several cases.
+  const claim = await conversations.findOneAndUpdate({ _id: id, escalated: { $ne: true } }, { $set: { escalated: true } }, { returnDocument: "after" });
+  if (!claim) {
+    // Someone else holds the claim and is creating the case: wait briefly for its id.
+    for (let i = 0; i < 20; i++) {
+      const cur = await conversations.findOne({ _id: id }, { projection: { escalationId: 1, messages: 1 } });
+      if (cur?.escalationId) return { inHours, escalationId: cur.escalationId, total: cur.messages.length, messages: [] };
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    // The claimant never finished (e.g. its function crashed). If no case exists, release the claim and retry once.
+    const existing = await (await col.escalations()).findOne({ conversationId: id }, { projection: { _id: 1 } });
+    if (existing) return { inHours, escalationId: existing._id, total: doc.messages.length, messages: [] };
+    if (!retried) {
+      await conversations.updateOne({ _id: id, escalationId: null } as unknown as Filter<ConversationDoc>, { $set: { escalated: false } });
+      return escalateConversation(id, token, true);
+    }
+    throw new ApiError(409, "হস্তান্তর প্রক্রিয়াধীন আছে। একটু পরে আবার চেষ্টা করুন।");
+  }
 
   const topic = topicOfMessages(claim.messages);
   const lastQuestion = [...claim.messages].reverse().find((m) => m.role === "user")?.text ?? "সরাসরি মানব প্রতিনিধির সাথে কথা বলার অনুরোধ";

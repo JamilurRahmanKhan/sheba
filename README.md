@@ -89,6 +89,36 @@ that deletes finished conversations older than the retention period set in *Sett
 |---|---|
 | `npm run dev` / `build` / `start` | Next.js |
 | `npm run lint` | ESLint |
+| `npm test` | unit + integration tests (see below) |
 | `npm run seed [-- --kb \| --demo]` | seed the database (see `scripts/seed.ts`) |
 
 See `docs/decisions.md` for design decisions and known gaps.
+
+## Tests
+
+```bash
+npm test          # 39 tests: bot matching, settings validation, retention, CSV, config checks + MongoDB integration
+```
+
+The integration tests use a **real MongoDB** (default `mongodb://127.0.0.1:27017`, override with
+`TEST_MONGODB_URI`) and only ever touch the database `seba_sohayok_test`, which they drop before and
+after. If no MongoDB is reachable they are skipped. They cover the important concurrency rules:
+five simultaneous escalations create one case, two officers racing to accept a case → exactly one wins,
+unique ids under parallel load, the bot staying quiet during an open case, and retention never deleting
+a chat that has an open case.
+
+## Troubleshooting a deployment
+
+`GET /api/health` reports database connectivity and configuration problems **by name only** (never secret
+values). It is protected with the same secret as the cron job:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://<your-site>/api/health
+```
+
+| Symptom | Likely cause |
+|---|---|
+| Login says wrong email/password for the admin you set in Vercel | The first admin is only created when the `users` collection is empty **and** `ADMIN_EMAIL` / `ADMIN_PASSWORD` are valid (password ≥ 8 chars, no stray spaces). `/api/health` names the problem. Fix the variable, **redeploy** (env changes apply to new deployments only), then log in once. |
+| Every API call fails / `db.ok: false` | Atlas *Network Access* does not allow Vercel (add `0.0.0.0/0` or use the Atlas integration), or a wrong `MONGODB_URI` (a `@` in the password must be written `%40`). |
+| Admin exists but you forgot the password | Another admin can reset it in *Settings → টিম*. If none can: delete the user document in Atlas and let the bootstrap recreate it from the env variables. |
+| Bot only gives generic topic answers | The knowledge base is empty — `MONGODB_URI=... npm run seed -- --kb`. |

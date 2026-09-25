@@ -16,7 +16,13 @@ const LOCK_MS = 15 * 60_000;
 export const POST = route(async (req) => {
   rateLimit(`login:${clientIp(req)}`, 10, 60_000);
   const { email, password } = await body(req, schema);
-  await ensureBootstrapAdmin();
+  try {
+    await ensureBootstrapAdmin();
+  } catch (err) {
+    // A setup problem (e.g. weak ADMIN_PASSWORD) must not turn every login into a 500.
+    // Details are in the logs and in the protected /api/health report.
+    console.error("[bootstrap-admin]", err instanceof Error ? err.message : err);
+  }
   const users = await col.users();
   const user = await users.findOne({ email });
 
