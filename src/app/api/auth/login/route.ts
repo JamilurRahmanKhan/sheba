@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { body, clientIp, rateLimit, route } from "@/server/http";
+import { body, clientIp, rateLimitShared, route } from "@/server/http";
 import { col } from "@/server/db";
 import { createSession, ensureBootstrapAdmin, hashPassword, verifyPassword } from "@/server/auth";
 import { NextResponse } from "next/server";
@@ -14,7 +14,7 @@ const MAX_FAILS = 5;
 const LOCK_MS = 15 * 60_000;
 
 export const POST = route(async (req) => {
-  rateLimit(`login:${clientIp(req)}`, 10, 60_000);
+  await rateLimitShared(`login:${clientIp(req)}`, 10, 60_000);
   const { email, password } = await body(req, schema);
   try {
     await ensureBootstrapAdmin();

@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError, type ZodType } from "zod";
+import { col } from "./db";
 
 export class ApiError extends Error {
   constructor(
@@ -54,10 +55,11 @@ export function query<T>(req: NextRequest, schema: ZodType<T>): T {
   return schema.parse(Object.fromEntries(req.nextUrl.searchParams));
 }
 
-/* ---------------- tiny in-memory rate limiter (per server instance; a speed bump, not a wall) ---------------- */
+/* ---------------- rate limiting ---------------- */
 
 const buckets = new Map<string, { n: number; reset: number }>();
 
+/** Cheap per-instance limiter for high-frequency, low-risk calls (e.g. chat polling). */
 export function rateLimit(key: string, max: number, windowMs: number) {
   const now = Date.now();
   const b = buckets.get(key);
@@ -68,6 +70,38 @@ export function rateLimit(key: string, max: number, windowMs: number) {
   }
   b.n += 1;
   if (b.n > max) throw new ApiError(429, "অনেক বেশি অনুরোধ। একটু পরে আবার চেষ্টা করুন।");
+}
+
+/**
+ * Shared limiter backed by MongoDB, so the limit holds across all serverless instances.
+ * One atomic upsert per call; documents expire automatically (TTL index on `expireAt`).
+ * Fails open: if the database call itself fails we let the request through (and log) rather than take the site down.
+ */
+export async function rateLimitShared(key: string, max: number, windowMs: number): Promise<void> {
+  let n = 0;
+  try {
+    const limits = await col.rateLimits();
+    const now = new Date();
+    const expireAt = new Date(now.getTime() + windowMs);
+    const doc = await limits.findOneAndUpdate(
+      { _id: key },
+      [
+        {
+          $set: {
+            // a missing/expired window starts a new one
+            n: { $cond: [{ $lt: [{ $ifNull: ["$expireAt", new Date(0)] }, now] }, 1, { $add: [{ $ifNull: ["$n", 0] }, 1] }] },
+            expireAt: { $cond: [{ $lt: [{ $ifNull: ["$expireAt", new Date(0)] }, now] }, expireAt, "$expireAt"] },
+          },
+        },
+      ],
+      { upsert: true, returnDocument: "after" },
+    );
+    n = doc?.n ?? 0;
+  } catch (err) {
+    console.error("[rate-limit] shared limiter unavailable, failing open:", err instanceof Error ? err.message : err);
+    return;
+  }
+  if (n > max) throw new ApiError(429, "অনেক বেশি অনুরোধ। একটু পরে আবার চেষ্টা করুন।");
 }
 
 export const clientIp = (req: NextRequest) => req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";

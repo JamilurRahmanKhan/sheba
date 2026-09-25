@@ -42,6 +42,7 @@ describe.skipIf(!up)("integration (MongoDB)", () => {
       q: await import("@/server/queries"),
       db: await import("@/server/db"),
       data: await import("@/server/data"),
+      http: await import("@/server/http"),
     };
     // A small knowledge base + the users the assignment check needs
     await (await m.db.col.kb()).insertMany([
@@ -156,5 +157,28 @@ describe.skipIf(!up)("integration (MongoDB)", () => {
     expect(await conversations.findOne({ _id: c1.conversationId })).toBeNull();
     expect(await conversations.findOne({ _id: c2.conversationId })).not.toBeNull(); // case still open
     void esc;
+  });
+
+  describe("shared rate limiter", () => {
+    const attempt = (key: string, max: number, win: number) => m.http.rateLimitShared(key, max, win).then(() => "ok", (e: { status: number }) => e.status);
+
+    it("lets exactly `max` of many PARALLEL requests through (shared across instances)", async () => {
+      const results = await Promise.all(Array.from({ length: 12 }, () => attempt("t:parallel", 5, 60_000)));
+      expect(results.filter((r) => r === "ok")).toHaveLength(5);
+      expect(results.filter((r) => r === 429)).toHaveLength(7);
+    });
+
+    it("counts each key separately", async () => {
+      await attempt("t:a", 1, 60_000);
+      expect(await attempt("t:a", 1, 60_000)).toBe(429);
+      expect(await attempt("t:b", 1, 60_000)).toBe("ok");
+    });
+
+    it("starts a fresh window after it expires", async () => {
+      expect(await attempt("t:win", 1, 300)).toBe("ok");
+      expect(await attempt("t:win", 1, 300)).toBe(429);
+      await new Promise((r) => setTimeout(r, 400));
+      expect(await attempt("t:win", 1, 300)).toBe("ok");
+    });
   });
 });

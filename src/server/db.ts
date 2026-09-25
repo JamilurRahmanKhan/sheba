@@ -38,6 +38,12 @@ export interface UserDoc {
   lockUntil?: string;
 }
 
+export interface RateLimitDoc {
+  _id: string;
+  n: number;
+  expireAt: Date;
+}
+
 export interface CounterDoc {
   _id: string;
   seq: number;
@@ -81,6 +87,7 @@ async function ensureIndexes(db: Db) {
     db.collection("escalations").createIndex({ assignee: 1 }),
     db.collection("escalations").createIndex({ conversationId: 1 }, { sparse: true }),
     db.collection("kb").createIndex({ category: 1 }),
+    db.collection("ratelimits").createIndex({ expireAt: 1 }, { expireAfterSeconds: 0 }),
   ]);
 }
 
@@ -91,6 +98,7 @@ export const col = {
   kb: async (): Promise<Collection<KbDoc>> => (await getDb()).collection<KbDoc>("kb"),
   settings: async (): Promise<Collection<SettingsDoc>> => (await getDb()).collection<SettingsDoc>("settings"),
   counters: async (): Promise<Collection<CounterDoc>> => (await getDb()).collection<CounterDoc>("counters"),
+  rateLimits: async (): Promise<Collection<RateLimitDoc>> => (await getDb()).collection<RateLimitDoc>("ratelimits"),
 };
 
 /** Atomic sequential ids, safe under concurrent serverless instances. */

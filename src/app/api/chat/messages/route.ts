@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { body, clientIp, rateLimit, route } from "@/server/http";
+import { body, clientIp, rateLimitShared, route } from "@/server/http";
 import { postUserMessage } from "@/server/chat";
 
 const schema = z.object({
@@ -11,7 +11,7 @@ const schema = z.object({
 });
 
 export const POST = route(async (req) => {
-  rateLimit(`chat:${clientIp(req)}`, 40, 60_000);
+  await rateLimitShared(`chat:${clientIp(req)}`, 40, 60_000);
   const input = await body(req, schema);
   return postUserMessage(input);
 });

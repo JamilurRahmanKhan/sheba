@@ -397,3 +397,18 @@
 .star{all:unset; cursor:pointer; font-size:20px; line-height:1; padding:4px 5px; color:var(--text-3); border-radius:6px}
 .star:hover,.star:focus-visible{color:var(--warn)}
 .star:focus-visible{outline:2px solid var(--accent)}
+
+/* ===== Touch targets: 44px minimum on phones ===== */
+@media (max-width:760px){
+  .tabbtn,.btn,.btn-link,.pill,.chip,.topicbtn,.switch,.newconvo,.escalate-link,.star,.rowlink,.langtoggle button,.side-link{min-height:44px}
+  .tabbtn,.btn,.btn-link,.chip,.newconvo,.escalate-link,.star,.rowlink,.switch,.langtoggle button{display:inline-flex; align-items:center; justify-content:center}
+  .rowlink,.btn-link{justify-content:flex-start}
+  .btn-link{min-width:44px}
+  .switch{justify-content:flex-start}
+  .star{min-width:44px}
+  .sendbtn{width:44px; height:44px}
+  .themetoggle{width:44px; height:44px}
+  .input,select.input,.field input[type="text"],.field input[type="search"],.field select,.field textarea{min-height:44px}
+  .radio{width:24px; height:24px}
+  .recent-btn{min-height:44px; display:flex; flex-direction:column; justify-content:center}
+}

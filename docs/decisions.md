@@ -103,3 +103,12 @@
 - **Found on the live Vercel site:** `POST /api/auth/login` returned 500 even for unknown emails. Cause class: first-admin bootstrap throwing on a bad `ADMIN_*` env value before any credential check. Fix: bootstrap errors are logged and no longer break login; new protected `GET /api/health` (Bearer `CRON_SECRET`) reports DB connectivity + config problems by name only. Reproduced locally with a too-short admin password (500 → 401 + precise health message).
 - **Test suite added (Vitest, 39 tests):** unit tests (bot, settings, retention, CSV, seed consistency, config checks) + MongoDB integration tests (test DB `seba_sohayok_test`, auto-skipped when no DB). Verified the suite fails when the bot threshold is deliberately broken.
 - **Real bug found by the integration tests:** concurrent escalation from one chat created N cases (the atomic "claim" filtered on `escalationId: null` but set only `escalated: true`, so every concurrent request matched). Now the claim flips `escalated` false→true (single winner); losers wait briefly for the winner's case id; a crashed claimant is recovered (claim released and retried once). Regression test: 5 simultaneous escalations → 1 case.
+
+## Phase 7 — Hardening & QA (2026-09-25)
+
+- **Shared rate limiting:** login, chat messages and escalation are limited through MongoDB (`ratelimits`, one atomic upsert per call, TTL index) so the limit holds across all serverless instances; fails open (logged) if the limiter itself errors. Chat polling keeps the cheap per-instance limiter. Integration-tested: 12 parallel requests with a budget of 5 → exactly 5 pass; separate keys; window expiry.
+- **CI:** `.github/workflows/ci.yml` runs lint, type-check, the full test suite (with a Mongo service container) and a production build with no secrets.
+- **QA evidence (375/768/1280/1920 × 12 pages):** no horizontal overflow, no console errors, every field labelled. Found and fixed undersized touch targets at 375 px (up to 34 per page → 0): all controls are ≥ 44 px on phones.
+- **Verified:** 42 tests pass (3 consecutive runs), lint + tsc clean, build succeeds with an empty environment.
+
+**Still open:** no citizen notifications (SMS/email), bot is keyword-based (no LLM/embeddings), no MFA, no automated visual-regression tests, contrast was reviewed by tokens rather than a tool.

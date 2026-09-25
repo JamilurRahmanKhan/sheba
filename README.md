@@ -80,6 +80,7 @@ that deletes finished conversations older than the retention period set in *Sett
   database on every request, so deactivating an account takes effect immediately. Roles: **admin**
   (everything) and **officer** (conversations, hand-offs, knowledge base). `proxy.ts` is only an optimistic
   redirect; every `/api/admin/*` route enforces authorisation itself.
+- **Abuse protection:** login, sending chat messages and escalating are rate-limited through MongoDB so the limits hold across all Vercel instances; accounts lock for 15 min after 5 failed logins. For heavy attacks add Vercel Firewall rules on top.
 - **Citizen privacy:** chats are anonymous. A random per-conversation secret (only its hash is stored)
   authorises the citizen's own polling/escalation/rating calls.
 
