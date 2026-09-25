@@ -99,6 +99,7 @@ export async function listConversations(p: ConversationQuery) {
     baseTotal: light.length,
     counts,
     ratedCount: rated.length,
+    satisfiedCount: rated.filter((d) => (d.rating ?? 0) >= 4).length,
     avgRating,
     pendingReview: await conversations.countDocuments({ reviewed: false }),
   };

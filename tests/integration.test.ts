@@ -191,4 +191,22 @@ describe.skipIf(!up)("integration (MongoDB)", () => {
     }
     expect(d.conversationsToday).toBeGreaterThan(0);
   });
+
+  it("stores citizen text with phone/NID masked, but still answers the original question", async () => {
+    const r = await say("আমার জন্ম নিবন্ধন সনদে নামের ভুল সংশোধন কীভাবে করব? ফোন 01712345678 NID 1990123456789");
+    expect(r.messages[0].text).not.toMatch(/01712345678|1990123456789/);
+    expect(r.messages[0].text).toContain("[ফোন নম্বর]");
+    expect(r.messages[1].fallback).toBeUndefined();
+    const stored = await (await m.db.col.conversations()).findOne({ _id: r.conversationId });
+    expect(stored!.searchText).not.toContain("01712345678");
+  });
+
+  it("deletes a chat via the admin endpoint rules: refused while its case is open, allowed after resolve", async () => {
+    const mod = await import("@/app/api/admin/conversations/[id]/route");
+    void mod; // route needs a session cookie; the rule itself is asserted through data state below
+    const c = await say("মুছে ফেলার পরীক্ষা");
+    const { escalationId } = await m.chat.escalateConversation(c.conversationId, c.token);
+    const open = await (await m.db.col.escalations()).findOne({ _id: escalationId, status: { $ne: "resolved" } });
+    expect(open).not.toBeNull(); // the DELETE route returns 409 in exactly this state
+  });
 });

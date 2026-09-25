@@ -65,7 +65,7 @@ export function deriveOutcome(c: Conversation): Outcome {
 }
 
 export const OUTCOME_META: Record<Outcome, { label: string; bg: string; color: string }> = {
-  resolved: { label: "AI সমাধান করেছে", bg: "var(--success-soft)", color: "var(--success)" },
+  resolved: { label: "বট উত্তর দিয়েছে", bg: "var(--success-soft)", color: "var(--success)" },
   escalated: { label: "হস্তান্তর", bg: "var(--warn-soft)", color: "var(--warn)" },
   unanswered: { label: "উত্তর পাওয়া যায়নি", bg: "var(--danger-soft)", color: "var(--danger)" },
 };

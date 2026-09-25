@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import useSWR from "swr";
+import { useApp } from "./AppProvider";
 import { Modal } from "./Modal";
 import { KbFormModal } from "./KbFormModal";
 import { Transcript } from "./Transcript";
@@ -43,6 +44,7 @@ interface ListResponse {
   baseTotal: number;
   counts: Record<Outcome, number>;
   ratedCount: number;
+  satisfiedCount: number;
   avgRating: number | null;
   pendingReview: number;
 }
@@ -71,6 +73,8 @@ function Rating({ value }: { value?: number }) {
 const summaryTopic = (c: ConversationSummary) => topicLabel({ topic: c.topic } as Conversation);
 
 export function ConversationsView() {
+  const { user } = useApp();
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [debounced, setDebounced] = useState(query);
@@ -139,6 +143,19 @@ export function ConversationsView() {
     }
   };
 
+  const removeConv = async (id: string) => {
+    try {
+      await api(`/api/admin/conversations/${id}`, { method: "DELETE" });
+      setDeleteId(null);
+      setOpenId(null);
+      setNotice({ kind: "ok", text: `${id} স্থায়ীভাবে মুছে ফেলা হয়েছে।` });
+      await mutate();
+    } catch (e) {
+      setDeleteId(null);
+      setNotice({ kind: "err", text: errorMessage(e) });
+    }
+  };
+
   const saveToKb = async (conv: Conversation, input: KbInput) => {
     try {
       await api("/api/admin/kb", { body: input });
@@ -153,7 +170,7 @@ export function ConversationsView() {
 
   const cards: { key: OutcomeFilter; label: string; color: string; value: number }[] = [
     { key: "all", label: "মোট কথোপকথন", color: "var(--accent)", value: baseTotal },
-    { key: "resolved", label: "AI সমাধান করেছে", color: "var(--success)", value: counts.resolved },
+    { key: "resolved", label: "বট উত্তর দিয়েছে", color: "var(--success)", value: counts.resolved },
     { key: "escalated", label: "মানব প্রতিনিধিতে হস্তান্তর", color: "var(--warn)", value: counts.escalated },
     { key: "unanswered", label: "উত্তর পাওয়া যায়নি", color: "var(--danger)", value: counts.unanswered },
   ];
@@ -229,7 +246,7 @@ export function ConversationsView() {
                 <th>আইডি / সময়</th>
                 <th>প্রথম প্রশ্ন</th>
                 <th>বিষয়</th>
-                <th>বার্তা</th>
+                <th>প্রশ্ন</th>
                 <th>ফলাফল</th>
                 <th>রেটিং</th>
                 <th>রিভিউ</th>
@@ -251,7 +268,7 @@ export function ConversationsView() {
                       </button>
                     </td>
                     <td style={{ color: "var(--text-2)" }}>{summaryTopic(c)}</td>
-                    <td>{bn(c.messageCount - 1)}</td>
+                    <td>{bn(c.userMessages)}</td>
                     <td>
                       <span className="badge" style={{ background: meta.bg, color: meta.color }}>
                         {meta.label}
@@ -300,7 +317,7 @@ export function ConversationsView() {
           <div className="pager">
             <div style={{ color: "var(--text-2)" }}>
               {bn(total)}টির মধ্যে {bn(safePage * PAGE_SIZE + 1)}–{bn(Math.min((safePage + 1) * PAGE_SIZE, total))}
-              {data && data.ratedCount > 0 && data.avgRating !== null && ` · গড় রেটিং ${bn(data.avgRating, 1)} / ৫`}
+              {data && data.ratedCount > 0 && data.avgRating !== null && ` · গড় রেটিং ${bn(data.avgRating, 1)} / ৫ · সন্তুষ্ট (৪–৫ স্টার): ${bn(Math.round((data.satisfiedCount / data.ratedCount) * 100))}% (${bn(data.ratedCount)}টি রেটিং)`}
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <button type="button" className="btn btn-outline" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>
@@ -330,8 +347,21 @@ export function ConversationsView() {
               setKbDraft(detail.conversation);
             }}
             onClose={() => setOpenId(null)}
+            onDelete={user?.role === "admin" ? () => setDeleteId(detail.conversation.id) : undefined}
           />
         )}
+      </Modal>
+
+      <Modal open={!!deleteId} title="কথোপকথন স্থায়ীভাবে মুছবেন?" onClose={() => setDeleteId(null)}>
+        <p>{deleteId} এবং এর সম্পূর্ণ প্রতিলিপি মুছে যাবে। এটি ফেরানো যাবে না।</p>
+        <div className="modal-actions">
+          <button type="button" className="btn btn-outline" onClick={() => setDeleteId(null)} data-autofocus>
+            বাতিল
+          </button>
+          <button type="button" className="btn btn-danger" onClick={() => deleteId && removeConv(deleteId)}>
+            হ্যাঁ, মুছুন
+          </button>
+        </div>
       </Modal>
 
       {kbDraft && (
@@ -353,12 +383,14 @@ function ConversationDetail({
   onUpdate,
   onAddKb,
   onClose,
+  onDelete,
 }: {
   conv: Conversation;
   escalation?: Escalation;
   onUpdate: (patch: Partial<Pick<Conversation, "reviewed" | "flagged" | "note" | "kbAdded">>) => void;
   onAddKb: () => void;
   onClose: () => void;
+  onDelete?: () => void;
 }) {
   const [note, setNote] = useState(conv.note);
   const outcome = deriveOutcome(conv);
@@ -432,6 +464,11 @@ function ConversationDetail({
           <button type="button" className="btn btn-outline" onClick={() => onUpdate({ flagged: !conv.flagged })} aria-pressed={conv.flagged}>
             {conv.flagged ? "ফ্ল্যাগ সরান" : "উন্নতির জন্য ফ্ল্যাগ করুন"}
           </button>
+          {onDelete && (
+            <button type="button" className="btn btn-outline" style={{ color: "var(--danger)" }} onClick={onDelete}>
+              মুছে ফেলুন
+            </button>
+          )}
           {noteDirty && (
             <button type="button" className="btn btn-outline" onClick={() => onUpdate({ note: note.trim() })}>
               নোট সংরক্ষণ

@@ -6,6 +6,7 @@ import { answerQuestion, followupAnswer } from "./bot";
 import { getSettings } from "./settings";
 import { ApiError, badRequest, forbidden, notFound } from "./http";
 import { HANDOFF_OFFHOURS_TEXT, HANDOFF_TEXT, deriveOutcome, topicOfMessages, type Conversation, type LogMessage } from "@/lib/conversations";
+import { maskPii } from "@/lib/pii";
 import { labelFor, type Followup, type TopicId } from "@/lib/data";
 import type { Lang } from "@/lib/i18n";
 import { withinWorkingHours } from "@/lib/settings";
@@ -103,7 +104,7 @@ export async function postUserMessage(input: {
   if (doc.messages.length >= MAX_MESSAGES) throw badRequest("কথোপকথনটি অনেক দীর্ঘ হয়ে গেছে। নতুন কথোপকথন শুরু করুন।");
 
   const before = doc.messages.length;
-  const added: (LogMessage & { followups?: Followup[] })[] = [{ role: "user", text: input.text, at: now() }];
+  const added: (LogMessage & { followups?: Followup[] })[] = [{ role: "user", text: maskPii(input.text), at: now() }];
 
   // A human owns the chat while a case is open; once it is resolved the bot resumes.
   const openCase = doc.escalationId ? await (await col.escalations()).findOne({ _id: doc.escalationId, status: { $ne: "resolved" } }, { projection: { _id: 1 } }) : null;

@@ -91,7 +91,7 @@ export function DashboardView() {
         </div>
         <div className="card card-pad tile-row" style={{ flex: 1, minWidth: 220 }}>
           <div className="tile">
-            <div className="tl">AI দ্বারা সমাধান হার (গত ৭ দিন)</div>
+            <div className="tl">বট উত্তর দেওয়ার হার (গত ৭ দিন)</div>
             <div className="tv">{stats?.aiResolveRate == null ? "—" : `${bn(stats.aiResolveRate)}%`}</div>
             {stats && stats.aiResolveRate == null && (
               <div className="td" style={{ color: "var(--text-2)" }}>
