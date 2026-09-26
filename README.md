@@ -97,12 +97,12 @@ that deletes finished conversations older than the retention period set in *Sett
 | `npm test` | unit + integration tests (see below) |
 | `npm run seed [-- --kb \| --demo]` | seed the database (see `scripts/seed.ts`) |
 
-See `docs/decisions.md` for design decisions and known gaps.
+Full guide (services, how to use, architecture, API, operations): `docs/SYSTEM_GUIDE.md`. Design decisions and known gaps: `docs/decisions.md`.
 
 ## Tests
 
 ```bash
-npm test          # 39 tests: bot matching, settings validation, retention, CSV, config checks + MongoDB integration
+npm test          # 78 tests: bot matching, settings validation, retention, CSV, config checks + MongoDB integration
 ```
 
 The integration tests use a **real MongoDB** (default `mongodb://127.0.0.1:27017`, override with
