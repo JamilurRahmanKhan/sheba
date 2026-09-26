@@ -35,6 +35,8 @@ export async function composeAnswer(input: { text: string; kb: KbItem[]; history
   const entries = selectContext(input.text, input.kb, base.topic);
   const res = await askLlm({ question: input.text, history: input.history, entries });
   if (!res) return { ...base, usedKbIds: base.kbId ? [base.kbId] : [] };
+  // The model read the knowledge and found no answer: say so honestly rather than show a loosely matched topic.
+  if ("declined" in res) return { text: "", topic: null, followups: [], fallback: true, source: "fallback", usedKbIds: [] };
 
   const kbIds = res.ids.filter((id) => !id.startsWith("topic-"));
   const first = input.kb.find((k) => k.id === kbIds[0]);

@@ -42,6 +42,15 @@ describe("askLlm", () => {
     expect(body.messages[0].content).toContain("[q1]");
     expect(body.messages.at(-1)).toEqual({ role: "user", content: "আমার প্রশ্ন" });
   });
+  it("reports an explicit decline separately from a technical failure", async () => {
+    expect(await ask(ok("IDS: NONE") as unknown as typeof fetch)).toEqual({ declined: true });
+  });
+  it("retries after a 429 and succeeds", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const f = vi.fn().mockResolvedValueOnce(new Response("{}", { status: 429 })).mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: "IDS: q1\n\nউত্তর" } }] }), { status: 200 }));
+    expect(await ask(f as unknown as typeof fetch)).toEqual({ answer: "উত্তর", ids: ["q1"] });
+    expect(f).toHaveBeenCalledTimes(2);
+  });
   it("returns null (so the caller falls back) on HTTP errors, bad JSON, timeouts and no key", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     for (const status of [402, 429, 500]) expect(await ask(vi.fn(async () => new Response("{}", { status })) as unknown as typeof fetch)).toBeNull();
