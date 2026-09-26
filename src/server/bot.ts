@@ -9,6 +9,9 @@ export interface BotAnswer {
   kbId?: string;
   /** the bot could not answer */
   fallback?: boolean;
+  /** where the answer came from */
+  source: "kb" | "topic" | "fallback";
+  score?: number;
 }
 
 const STOP = new Set([
@@ -33,11 +36,17 @@ function sameToken(a: string, b: string): boolean {
 
 /** Share of the entry's own keywords found in the question (0–1), and how many matched. */
 export function scoreItem(queryTokens: string[], item: KbItem): { score: number; matched: number } {
-  const itemTokens = tokenize(item.question);
-  if (itemTokens.length === 0) return { score: 0, matched: 0 };
-  const matched = itemTokens.filter((t) => queryTokens.some((q) => sameToken(q, t))).length;
-  const enough = matched >= 2 || (itemTokens.length <= 2 && matched >= 1);
-  return { score: enough ? matched / itemTokens.length : 0, matched };
+  // the question and every alternative phrasing are candidates; the best one counts
+  let best = { score: 0, matched: 0 };
+  for (const phrase of [item.question, ...(item.aliases ?? [])]) {
+    const itemTokens = tokenize(phrase);
+    if (itemTokens.length === 0) continue;
+    const matched = itemTokens.filter((t) => queryTokens.some((q) => sameToken(q, t))).length;
+    const enough = matched >= 2 || (itemTokens.length <= 2 && matched >= 1);
+    const score = enough ? matched / itemTokens.length : 0;
+    if (score > best.score) best = { score, matched };
+  }
+  return best;
 }
 
 /**
@@ -58,11 +67,11 @@ export function answerQuestion(text: string, activeKb: KbItem[]): BotAnswer {
   }
 
   if (topic) {
-    if (best && best.score >= 0.5) return { text: best.item.answer, topic: topic.id, followups: followupsOf(topic.id), kbId: best.item.id };
-    return { text: topic.answer, topic: topic.id, followups: topic.followups };
+    if (best && best.score >= 0.5) return { text: best.item.answer, topic: topic.id, followups: followupsOf(topic.id), kbId: best.item.id, source: "kb", score: best.score };
+    return { text: topic.answer, topic: topic.id, followups: topic.followups, source: "topic" };
   }
-  if (best && best.score >= 0.5) return { text: best.item.answer, topic: best.item.category, followups: followupsOf(best.item.category), kbId: best.item.id };
-  return { text: "", topic: null, followups: [], fallback: true };
+  if (best && best.score >= 0.5) return { text: best.item.answer, topic: best.item.category, followups: followupsOf(best.item.category), kbId: best.item.id, source: "kb", score: best.score };
+  return { text: "", topic: null, followups: [], fallback: true, source: "fallback" };
 }
 
 export function followupAnswer(topicId: TopicId, label: string): string | null {

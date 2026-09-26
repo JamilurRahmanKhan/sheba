@@ -23,6 +23,7 @@ export function KbFormModal({
     item?.category ?? defaults?.category ?? (mustChoose ? "" : FAQ_TOPICS[0].id),
   );
   const [answer, setAnswer] = useState(item?.answer ?? defaults?.answer ?? "");
+  const [aliases, setAliases] = useState((item?.aliases ?? defaults?.aliases ?? []).join("\n"));
 
   return (
     <Modal open title={item ? "প্রশ্ন সম্পাদনা করুন" : "নতুন প্রশ্ন যোগ করুন"} onClose={onClose}>
@@ -32,7 +33,7 @@ export function KbFormModal({
           e.preventDefault();
           const q = question.trim();
           const a = answer.trim();
-          if (q && a && category) onSave({ question: q, category, answer: a });
+          if (q && a && category) onSave({ question: q, category, answer: a, aliases: aliases.split("\n").map((x) => x.trim()).filter(Boolean) });
         }}
       >
         <label className="field">
@@ -57,6 +58,11 @@ export function KbFormModal({
         <label className="field">
           উত্তর
           <textarea rows={4} value={answer} onChange={(e) => setAnswer(e.target.value)} required />
+        </label>
+        <label className="field">
+          বিকল্প প্রশ্ন (ঐচ্ছিক — প্রতি লাইনে একটি)
+          <textarea rows={3} value={aliases} onChange={(e) => setAliases(e.target.value)} placeholder={"নাগরিকরা একই কথা অন্যভাবে যেভাবে জিজ্ঞেস করেন, যেমন:\nবিদ্যুৎ বিল কোথায় দেব\nবিল পেমেন্টের উপায়"} />
+          <span className="field-hint">বট এই বাক্যগুলোও মিলিয়ে দেখে — এতে ভিন্নভাবে করা প্রশ্নেও সঠিক উত্তর মেলে।</span>
         </label>
         <div className="modal-actions">
           <button type="button" className="btn btn-outline" onClick={onClose}>

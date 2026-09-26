@@ -293,10 +293,13 @@ export interface KbInput {
   question: string;
   category: TopicId;
   answer: string;
+  /** other ways citizens ask the same thing (one phrasing each) */
+  aliases?: string[];
 }
 
 export interface KbItem {
   id: string;
+  aliases?: string[];
   question: string;
   category: TopicId;
   uses: number;

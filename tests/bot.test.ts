@@ -54,4 +54,14 @@ describe("answerQuestion", () => {
     const item = SEED_KB[0];
     expect(scoreItem(tokenize("জন্ম নিবন্ধনের সনদের নামের ভুল সংশোধন"), item).score).toBeGreaterThanOrEqual(0.5);
   });
+
+  it("matches on alternative phrasings (aliases), and reports where the answer came from", () => {
+    const item = { id: "bill", question: "বিদ্যুৎ বিল অনলাইনে কীভাবে পরিশোধ করব?", category: "complaint" as const, uses: 0, updated: "", active: true, answer: "অ্যাপ", aliases: ["মিটারের টাকা কোথায় জমা দেব", "প্রিপেইড মিটার রিচার্জ"] };
+    const withAlias = answerQuestion("প্রিপেইড মিটার রিচার্জ করব কীভাবে", [item]);
+    expect(withAlias.kbId).toBe("bill");
+    expect(withAlias.source).toBe("kb");
+    expect(answerQuestion("প্রিপেইড মিটার রিচার্জ করব কীভাবে", [{ ...item, aliases: [] }]).fallback).toBe(true);
+    expect(answerQuestion("আজকের আবহাওয়া", [item]).source).toBe("fallback");
+    expect(answerQuestion("পাসপোর্টের ফি", []).source).toBe("topic");
+  });
 });
