@@ -130,7 +130,16 @@ function SettingsForm({
   const [errors, setErrors] = useState<SettingsErrors>({});
   const [busy, setBusy] = useState(false);
 
-  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
+  // If the saved settings change underneath an UNTOUCHED form (another admin/tab, a redeploy), follow them
+  // instead of reporting phantom "unsaved changes" that would overwrite the newer values on save.
+  const savedJson = JSON.stringify(saved);
+  const [baseline, setBaseline] = useState(savedJson);
+  if (savedJson !== baseline) {
+    setBaseline(savedJson);
+    if (JSON.stringify(draft) === baseline) setDraft(saved);
+  }
+
+  const dirty = JSON.stringify(draft) !== savedJson;
   const errorTabs = new Set((Object.keys(errors) as (keyof SettingsErrors)[]).map((k) => TAB_OF_ERROR[k]));
 
   const patch = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
