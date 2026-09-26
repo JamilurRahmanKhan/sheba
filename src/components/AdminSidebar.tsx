@@ -8,13 +8,14 @@ import { fetcher } from "@/lib/api";
 import { bn } from "@/lib/conversations";
 import { useSettings } from "@/lib/hooks";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
+import { useApp } from "./AppProvider";
 
 const LINKS = [
-  { href: "/admin", label: "ড্যাশবোর্ড" },
-  { href: "/admin/conversations", label: "কথোপকথন লগ" },
-  { href: "/admin/kb", label: "নলেজ বেস" },
-  { href: "/admin/escalations", label: "হস্তান্তরকৃত প্রশ্ন" },
-  { href: "/admin/settings", label: "সেটিংস" },
+  { href: "/admin", bn: "ড্যাশবোর্ড", en: "Dashboard" },
+  { href: "/admin/conversations", bn: "কথোপকথন লগ", en: "Conversation log" },
+  { href: "/admin/kb", bn: "নলেজ বেস", en: "Knowledge base" },
+  { href: "/admin/escalations", bn: "হস্তান্তরকৃত প্রশ্ন", en: "Handed-off questions" },
+  { href: "/admin/settings", bn: "সেটিংস", en: "Settings" },
 ];
 
 interface Alerts {
@@ -46,6 +47,7 @@ function beep() {
 }
 
 export function AdminSidebar() {
+  const { tr } = useApp();
   const pathname = usePathname();
   const { data } = useSettings();
   const org = (data?.settings ?? DEFAULT_SETTINGS).org;
@@ -81,7 +83,7 @@ export function AdminSidebar() {
         if (soundRef.current) beep();
         if (typeof Notification !== "undefined" && Notification.permission === "granted") {
           try {
-            new Notification("নতুন হস্তান্তর এসেছে", { body: a.latest.question, tag: "seba-new-case" });
+            new Notification(tr("নতুন হস্তান্তর এসেছে", "New hand-off received"), { body: a.latest.question, tag: "seba-new-case" });
           } catch {
             /* some browsers only allow notifications from a service worker */
           }
@@ -111,17 +113,17 @@ export function AdminSidebar() {
 
   return (
     <aside className="shell-side">
-      <div className="side-title">{org.panelTitle}</div>
-      <div className="side-sub">{org.departmentName}</div>
+      <div className="side-title">{org.panelTitle === DEFAULT_SETTINGS.org.panelTitle ? tr(org.panelTitle, "Service Assistant AI Panel") : org.panelTitle}</div>
+      <div className="side-sub">{org.departmentName === DEFAULT_SETTINGS.org.departmentName ? tr(org.departmentName, "Information & Communication Technology Division") : org.departmentName}</div>
       {LINKS.map((l) => {
         const active = l.href === "/admin" ? pathname === "/admin" : pathname.startsWith(l.href);
         const badge = l.href === "/admin/escalations" && newCount > 0 ? newCount : 0;
         return (
           <Link key={l.href} href={l.href} className="side-link" aria-current={active ? "page" : undefined}>
             <span className="dot" />
-            {l.label}
+            {tr(l.bn, l.en)}
             {badge > 0 && (
-              <span className="side-badge" aria-label={`${bn(badge)}টি নতুন${alerts?.overdueCount ? `, ${bn(alerts.overdueCount)}টি SLA ছাড়িয়েছে` : ""}`}>
+              <span className="side-badge" aria-label={`${bn(badge)} ${tr("টি নতুন", "new")}${alerts?.overdueCount ? `, ${bn(alerts.overdueCount)} ${tr("টি SLA ছাড়িয়েছে", "past SLA")}` : ""}`}>
                 {bn(badge)}
               </span>
             )}
@@ -146,20 +148,20 @@ export function AdminSidebar() {
             if (next) beep();
           }}
         >
-          নতুন কেসের শব্দ: {sound ? "চালু" : "বন্ধ"}
+          {tr("নতুন কেসের শব্দ", "New-case sound")}: {sound ? tr("চালু", "on") : tr("বন্ধ", "off")}
         </button>
         {notifPerm === "default" && (
           <button type="button" className="side-tool" onClick={async () => setNotifPerm(await Notification.requestPermission())}>
-            ডেস্কটপ নোটিফিকেশন চালু করুন
+            {tr("ডেস্কটপ নোটিফিকেশন চালু করুন", "Enable desktop notifications")}
           </button>
         )}
       </div>
 
       {toast && (
         <div className="toast" role="status">
-          <strong>নতুন হস্তান্তর:</strong> {toast.question.slice(0, 90)}{" "}
+          <strong>{tr("নতুন হস্তান্তর", "New hand-off")}:</strong> {toast.question.slice(0, 90)}{" "}
           <Link href={`/admin/escalations?open=${toast.id}`} onClick={() => setToast(null)}>
-            খুলুন →
+            {tr("খুলুন →", "Open →")}
           </Link>
         </div>
       )}

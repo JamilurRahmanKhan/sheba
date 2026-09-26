@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useApp } from "./AppProvider";
 import { Modal } from "./Modal";
-import { FAQ_TOPICS, type KbInput, type KbItem, type TopicId } from "@/lib/data";
+import { FAQ_TOPICS, labelFor, type KbInput, type KbItem, type TopicId } from "@/lib/data";
 
 export function KbFormModal({
   item,
@@ -16,6 +17,7 @@ export function KbFormModal({
   onClose: () => void;
   onSave: (v: KbInput) => void;
 }) {
+  const { tr } = useApp();
   const [question, setQuestion] = useState(item?.question ?? defaults?.question ?? "");
   // Prefilled entries without a known topic (e.g. unanswered chats) must be categorised by the admin.
   const mustChoose = !item && !!defaults && !defaults.category;
@@ -26,7 +28,7 @@ export function KbFormModal({
   const [aliases, setAliases] = useState((item?.aliases ?? defaults?.aliases ?? []).join("\n"));
 
   return (
-    <Modal open title={item ? "প্রশ্ন সম্পাদনা করুন" : "নতুন প্রশ্ন যোগ করুন"} onClose={onClose}>
+    <Modal open title={item ? tr("প্রশ্ন সম্পাদনা করুন", "Edit question") : tr("নতুন প্রশ্ন যোগ করুন", "Add a new question")} onClose={onClose}>
       <form
         style={{ display: "flex", flexDirection: "column", gap: 12 }}
         onSubmit={(e) => {
@@ -37,39 +39,39 @@ export function KbFormModal({
         }}
       >
         <label className="field">
-          প্রশ্ন
+          {tr("প্রশ্ন", "Question")}
           <input type="text" value={question} onChange={(e) => setQuestion(e.target.value)} required />
         </label>
         <label className="field">
-          বিভাগ
+          {tr("বিভাগ", "Category")}
           <select value={category} onChange={(e) => setCategory(e.target.value as TopicId)} required>
             {mustChoose && (
               <option value="" disabled>
-                বিভাগ নির্বাচন করুন
+                {tr("বিভাগ নির্বাচন করুন", "Select a category")}
               </option>
             )}
             {FAQ_TOPICS.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.label}
+                {labelFor(t.id)}
               </option>
             ))}
           </select>
         </label>
         <label className="field">
-          উত্তর
+          {tr("উত্তর", "Answer")}
           <textarea rows={4} value={answer} onChange={(e) => setAnswer(e.target.value)} required />
         </label>
         <label className="field">
-          বিকল্প প্রশ্ন (ঐচ্ছিক — প্রতি লাইনে একটি)
-          <textarea rows={3} value={aliases} onChange={(e) => setAliases(e.target.value)} placeholder={"নাগরিকরা একই কথা অন্যভাবে যেভাবে জিজ্ঞেস করেন, যেমন:\nবিদ্যুৎ বিল কোথায় দেব\nবিল পেমেন্টের উপায়"} />
-          <span className="field-hint">বট এই বাক্যগুলোও মিলিয়ে দেখে — এতে ভিন্নভাবে করা প্রশ্নেও সঠিক উত্তর মেলে।</span>
+          {tr("বিকল্প প্রশ্ন (ঐচ্ছিক — প্রতি লাইনে একটি)", "Alternative phrasings (optional — one per line)")}
+          <textarea rows={3} value={aliases} onChange={(e) => setAliases(e.target.value)} placeholder={tr("নাগরিকরা একই কথা অন্যভাবে যেভাবে জিজ্ঞেস করেন, যেমন:\nবিদ্যুৎ বিল কোথায় দেব\nবিল পেমেন্টের উপায়", "Other ways citizens ask the same thing, e.g.:\nwhere to pay electricity bill\nhow to pay a bill")} />
+          <span className="field-hint">{tr("বট এই বাক্যগুলোও মিলিয়ে দেখে — এতে ভিন্নভাবে করা প্রশ্নেও সঠিক উত্তর মেলে।", "The bot matches these phrasings too, so differently worded questions still find the right answer.")}</span>
         </label>
         <div className="modal-actions">
           <button type="button" className="btn btn-outline" onClick={onClose}>
-            বাতিল
+            {tr("বাতিল", "Cancel")}
           </button>
           <button type="submit" className="btn btn-solid">
-            সংরক্ষণ করুন
+            {tr("সংরক্ষণ করুন", "Save")}
           </button>
         </div>
       </form>

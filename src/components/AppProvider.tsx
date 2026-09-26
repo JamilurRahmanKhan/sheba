@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { translate, type I18nKey, type Lang } from "@/lib/i18n";
+import { setFormatLang, translate, type I18nKey, type Lang } from "@/lib/i18n";
 import type { SessionUser } from "@/lib/settings";
 import { api } from "@/lib/api";
 
@@ -13,6 +13,8 @@ interface AppContextValue {
   lang: Lang;
   setLang: (l: Lang) => void;
   t: (key: I18nKey) => string;
+  /** inline bilingual string: tr("বাংলা", "English") */
+  tr: (bn: string, en: string) => string;
   theme: Theme;
   setTheme: (t: Theme) => void;
   toggleTheme: () => void;
@@ -35,7 +37,10 @@ export function AppProvider({ user, children }: { user: SessionUser | null; chil
     try {
       const p = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") as { lang?: Lang; theme?: Theme };
       /* eslint-disable react-hooks/set-state-in-effect -- one-time hydration of browser preferences */
-      if (p.lang === "en") setLang("en");
+      if (p.lang === "en") {
+        setFormatLang("en");
+        setLang("en");
+      }
       if (p.theme === "light" || p.theme === "dark") setTheme(p.theme);
       /* eslint-enable react-hooks/set-state-in-effect */
     } catch {
@@ -60,6 +65,7 @@ export function AppProvider({ user, children }: { user: SessionUser | null; chil
   }, []);
 
   const setLangP = useCallback((l: Lang) => {
+    setFormatLang(l); // before the state change so every re-render reads the new language
     setLang(l);
     persist({ lang: l });
   }, [persist]);
@@ -87,9 +93,11 @@ export function AppProvider({ user, children }: { user: SessionUser | null; chil
 
   const t = useCallback((key: I18nKey) => translate(lang, key), [lang]);
 
+  const trans = useCallback((bnText: string, enText: string) => (lang === "en" ? enText : bnText), [lang]);
+
   const value = useMemo<AppContextValue>(
-    () => ({ lang, setLang: setLangP, t, theme, setTheme: setThemeP, toggleTheme, user, logout }),
-    [lang, setLangP, t, theme, setThemeP, toggleTheme, user, logout],
+    () => ({ lang, setLang: setLangP, t, tr: trans, theme, setTheme: setThemeP, toggleTheme, user, logout }),
+    [lang, setLangP, t, trans, theme, setThemeP, toggleTheme, user, logout],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

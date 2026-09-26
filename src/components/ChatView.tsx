@@ -6,7 +6,7 @@ import { Modal } from "./Modal";
 import { api, ApiClientError } from "@/lib/api";
 import { usePublicConfig } from "@/lib/hooks";
 import { bn, fmtClock, type LogMessage } from "@/lib/conversations";
-import type { Followup, TopicId } from "@/lib/data";
+import { localizeGreeting, localizeSystemText, localizeTopic, type Followup, type TopicId } from "@/lib/data";
 
 /** A message as returned by /api/chat: `idx` is its position in the stored conversation. */
 interface ChatMsg extends LogMessage {
@@ -54,7 +54,7 @@ function merge(prev: ChatMsg[], incoming: ChatMsg[]): ChatMsg[] {
 }
 
 export function ChatView() {
-  const { t, lang } = useApp();
+  const { t, tr, lang } = useApp();
   const { data: config, mutate: refreshConfig } = usePublicConfig();
 
   const [session, setSession] = useState<Session | null>(null);
@@ -179,7 +179,7 @@ export function ChatView() {
         apply(res.messages, res.total);
       } catch (e) {
         if (e instanceof ApiClientError && (e.status === 403 || e.status === 404)) adopt(null);
-        setError(e instanceof Error ? e.message : "বার্তা পাঠানো যায়নি।");
+        setError(e instanceof Error ? e.message : tr("বার্তা পাঠানো যায়নি।", "Could not send the message."));
         setInput(q);
       } finally {
         setPending(null);
@@ -187,7 +187,7 @@ export function ChatView() {
         busyRef.current = false;
       }
     },
-    [adopt, apply, lang, rememberRecent],
+    [adopt, apply, lang, rememberRecent, tr],
   );
 
   const newConversation = () => {
@@ -226,7 +226,7 @@ export function ChatView() {
       apply(r.messages, r.total);
       setEscStatus("new");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "হস্তান্তর করা যায়নি।");
+      setError(e instanceof Error ? e.message : tr("হস্তান্তর করা যায়নি।", "Could not hand off the conversation."));
     }
   };
 
@@ -241,18 +241,18 @@ export function ChatView() {
     }
   };
 
-  const TopicChips = ({ retry }: { retry?: boolean }) =>
+  const topicChips = (retry?: boolean) =>
     (config?.topics?.length ?? 0) > 0 ? (
       <>
         <div className="msg" style={{ justifyContent: "center" }}>
           <div className="bubble system">
-            {retry ? "এই বিষয়গুলোর যেকোনো একটি বেছে নিন" : "আমি শুধু সরকারি সেবা সংক্রান্ত প্রশ্নের উত্তর দিতে পারি — নিচের যেকোনো বিষয় বেছে নিন"}
+            {retry ? tr("এই বিষয়গুলোর যেকোনো একটি বেছে নিন", "Please pick one of these topics") : tr("আমি শুধু সরকারি সেবা সংক্রান্ত প্রশ্নের উত্তর দিতে পারি — নিচের যেকোনো বিষয় বেছে নিন", "I can only answer questions about government services — pick a topic below")}
           </div>
         </div>
         <div className="chipsrow">
           {config!.topics.map((topic) => (
             <button key={topic.id} type="button" className="chip" onClick={() => send(topic.sample)}>
-              {topic.label}
+              {localizeTopic(topic.label)}
             </button>
           ))}
         </div>
@@ -273,7 +273,7 @@ export function ChatView() {
               {(config?.topics ?? []).map((topic) => (
                 <button key={topic.id} type="button" className="topicbtn" onClick={() => send(topic.sample)}>
                   <span className="dot" />
-                  {topic.label}
+                  {localizeTopic(topic.label)}
                 </button>
               ))}
             </div>
@@ -296,32 +296,32 @@ export function ChatView() {
         <div className="chat-main">
           {config?.maintenance && (
             <div className="banner-warn" role="status">
-              রক্ষণাবেক্ষণ মোড চালু আছে — বট এখন প্রশ্নের উত্তর দিচ্ছে না।
+              {tr("রক্ষণাবেক্ষণ মোড চালু আছে — বট এখন প্রশ্নের উত্তর দিচ্ছে না।", "Maintenance mode is on — the bot is not answering questions right now.")}
             </div>
           )}
           <div className="chat-scroll" ref={scrollRef}>
-            <div className="chat-col" role="log" aria-live="polite" aria-label="কথোপকথন">
+            <div className="chat-col" role="log" aria-live="polite" aria-label={tr("কথোপকথন", "Conversation")}>
               <div className="msg" style={{ justifyContent: "center" }}>
                 <div className="bubble system">
-                  আজ, <span suppressHydrationWarning>{fmtClock(startedAt)}</span>
+                  {tr("আজ", "Today")}, <span suppressHydrationWarning>{fmtClock(startedAt)}</span>
                 </div>
               </div>
-              {greeting && <Bubble role="bot" text={greeting} />}
-              {visible.length === 0 && !pending && <TopicChips />}
+              {greeting && <Bubble role="bot" text={localizeGreeting(greeting)} />}
+              {visible.length === 0 && !pending && topicChips()}
               {visible.map((m) => {
                 if (m.role === "system") {
                   return (
                     <div key={m.idx} className="msg" style={{ justifyContent: "center" }}>
-                      <div className="bubble system">{m.text}</div>
+                      <div className="bubble system">{localizeSystemText(m.text)}</div>
                     </div>
                   );
                 }
                 if (m.role === "agent") {
                   return (
                     <div key={m.idx} className="msg bot">
-                      <div className="avatar agent">প্র</div>
+                      <div className="avatar agent">{tr("প্র", "A")}</div>
                       <div className="tcol">
-                        <div className="agent-name">মানব প্রতিনিধি{m.agent ? ` · ${m.agent}` : ""}</div>
+                        <div className="agent-name">{tr("মানব প্রতিনিধি", "Human agent")}{m.agent ? ` · ${m.agent}` : ""}</div>
                         <div className="bubble agent">{m.text}</div>
                       </div>
                     </div>
@@ -330,8 +330,8 @@ export function ChatView() {
                 const last = m.idx === visible[visible.length - 1]?.idx;
                 return (
                   <div key={m.idx} style={{ display: "contents" }}>
-                    <Bubble role={m.role} text={m.text} />
-                    {last && m.role === "bot" && m.fallback && !openCase ? <TopicChips retry /> : null}
+                    <Bubble role={m.role} text={m.role === "bot" ? localizeSystemText(m.text) : m.text} />
+                    {last && m.role === "bot" && m.fallback && !openCase ? topicChips(true) : null}
                     {last && m.role === "bot" && m.followups?.length ? (
                       <div className="chipsrow">
                         {m.followups.map((f) => (
@@ -351,7 +351,7 @@ export function ChatView() {
               })}
               {pending && <Bubble role="user" text={pending} />}
               {typing && (
-                <div className="msg bot" aria-label="উত্তর লেখা হচ্ছে">
+                <div className="msg bot" aria-label={tr("উত্তর লেখা হচ্ছে", "Typing a reply")}>
                   <div className="avatar bot">AI</div>
                   <div className="bubble bot typing">
                     <span />
@@ -372,13 +372,13 @@ export function ChatView() {
             {answeredByBot && !openCase && (
               <div className="chat-foot-col rate-row">
                 {rating ? (
-                  <span className="hint">রেটিং দেওয়ার জন্য ধন্যবাদ ({bn(rating)} / ৫)</span>
+                  <span className="hint">{tr("রেটিং দেওয়ার জন্য ধন্যবাদ", "Thanks for rating")} ({bn(rating)} / {bn(5)})</span>
                 ) : (
                   <>
-                    <span className="hint">এই কথোপকথন কি সহায়ক ছিল?</span>
-                    <div role="group" aria-label="রেটিং" style={{ display: "flex", gap: 4 }}>
+                    <span className="hint">{tr("এই কথোপকথন কি সহায়ক ছিল?", "Was this conversation helpful?")}</span>
+                    <div role="group" aria-label={tr("রেটিং", "Rating")} style={{ display: "flex", gap: 4 }}>
                       {[1, 2, 3, 4, 5].map((n) => (
-                        <button key={n} type="button" className="star" aria-label={`${bn(n)} স্টার`} onClick={() => rate(n)}>
+                        <button key={n} type="button" className="star" aria-label={`${bn(n)} ${tr("স্টার", "stars")}`} onClick={() => rate(n)}>
                           ★
                         </button>
                       ))}
@@ -402,7 +402,7 @@ export function ChatView() {
               }}
             >
               <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={t("chat.placeholder")} aria-label={t("chat.placeholder")} autoComplete="off" maxLength={1000} />
-              <button type="submit" className="sendbtn" aria-label="পাঠান">
+              <button type="submit" className="sendbtn" aria-label={tr("পাঠান", "Send")}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="m22 2-7 20-4-9-9-4Z" />
                   <path d="M22 2 11 13" />
@@ -416,18 +416,18 @@ export function ChatView() {
         </div>
       </div>
 
-      <Modal open={escOpen} title={inHours ? "মানব প্রতিনিধির সাথে সংযোগ করা হচ্ছে" : "আপনার অনুরোধ নথিভুক্ত হয়েছে"} onClose={() => setEscOpen(false)}>
+      <Modal open={escOpen} title={inHours ? tr("মানব প্রতিনিধির সাথে সংযোগ করা হচ্ছে", "Connecting you to a human agent") : tr("আপনার অনুরোধ নথিভুক্ত হয়েছে", "Your request has been recorded")} onClose={() => setEscOpen(false)}>
         <p>
           {inHours
-            ? `আপনার কথোপকথন একজন মানব প্রতিনিধির কাছে হস্তান্তর করা হবে। সাধারণত ${bn(sla)} মিনিটের মধ্যে একজন প্রতিনিধি এই কথোপকথনে যুক্ত হবেন। অনুগ্রহ করে অপেক্ষা করুন।`
+            ? tr(`আপনার কথোপকথন একজন মানব প্রতিনিধির কাছে হস্তান্তর করা হবে। সাধারণত ${bn(sla)} মিনিটের মধ্যে একজন প্রতিনিধি এই কথোপকথনে যুক্ত হবেন। অনুগ্রহ করে অপেক্ষা করুন।`, `Your conversation will be handed to a human agent. An agent will usually join within ${sla} minutes. Please wait.`)
             : (config?.offHoursMessage ?? "")}
         </p>
         <div className="modal-actions">
           <button type="button" className="btn btn-outline" onClick={() => setEscOpen(false)}>
-            বাতিল
+            {tr("বাতিল", "Cancel")}
           </button>
           <button type="button" className="btn btn-solid" onClick={confirmEscalation}>
-            বুঝেছি
+            {tr("বুঝেছি", "Got it")}
           </button>
         </div>
       </Modal>
@@ -436,9 +436,10 @@ export function ChatView() {
 }
 
 function Bubble({ role, text }: { role: "user" | "bot"; text: string }) {
+  const { tr } = useApp();
   return (
     <div className={`msg ${role}`}>
-      <div className={`avatar ${role}`}>{role === "bot" ? "AI" : "র"}</div>
+      <div className={`avatar ${role}`}>{role === "bot" ? "AI" : tr("র", "U")}</div>
       <div className={`bubble ${role}`}>{text}</div>
     </div>
   );

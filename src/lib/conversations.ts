@@ -1,3 +1,4 @@
+import { getFormatLang, tr } from "./i18n";
 import { FALLBACK, GREETING, labelFor, matchTopic, type Escalation, type TopicId } from "./data";
 import type { Lang } from "./i18n";
 
@@ -67,9 +68,9 @@ export function deriveOutcome(c: Conversation): Outcome {
 }
 
 export const OUTCOME_META: Record<Outcome, { label: string; bg: string; color: string }> = {
-  resolved: { label: "বট উত্তর দিয়েছে", bg: "var(--success-soft)", color: "var(--success)" },
-  escalated: { label: "হস্তান্তর", bg: "var(--warn-soft)", color: "var(--warn)" },
-  unanswered: { label: "উত্তর পাওয়া যায়নি", bg: "var(--danger-soft)", color: "var(--danger)" },
+  resolved: { get label() { return tr("বট উত্তর দিয়েছে", "Bot answered"); }, bg: "var(--success-soft)", color: "var(--success)" },
+  escalated: { get label() { return tr("হস্তান্তর", "Handed off"); }, bg: "var(--warn-soft)", color: "var(--warn)" },
+  unanswered: { get label() { return tr("উত্তর পাওয়া যায়নি", "Unanswered"); }, bg: "var(--danger-soft)", color: "var(--danger)" },
 };
 
 export function firstQuestion(c: Conversation): string {
@@ -85,7 +86,7 @@ export function topicOfMessages(messages: LogMessage[]): TopicId | null {
 }
 
 export function topicLabel(c: Conversation): string {
-  return c.topic ? labelFor(c.topic) : "অনির্ধারিত";
+  return c.topic ? labelFor(c.topic) : tr("অনির্ধারিত", "Unclassified");
 }
 
 export function durationSeconds(c: Conversation): number {
@@ -97,11 +98,14 @@ export function durationSeconds(c: Conversation): number {
 
 const TZ = "Asia/Dhaka";
 
+const LOCALE = () => (getFormatLang() === "en" ? "en-GB" : "bn-BD");
+
+/** Locale-aware number (Bengali digits in Bengali, Western digits in English). */
 export const bn = (n: number, digits = 0): string =>
-  n.toLocaleString("bn-BD", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  n.toLocaleString(LOCALE(), { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
 export function fmtDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("bn-BD", {
+  return new Date(iso).toLocaleString(LOCALE(), {
     timeZone: TZ,
     day: "numeric",
     month: "short",
@@ -112,18 +116,19 @@ export function fmtDateTime(iso: string): string {
 }
 
 export function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("bn-BD", { timeZone: TZ, hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+  return new Date(iso).toLocaleTimeString(LOCALE(), { timeZone: TZ, hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
 }
 
 export function fmtClock(date: Date): string {
-  return date.toLocaleTimeString("bn-BD", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  return date.toLocaleTimeString(LOCALE(), { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 }
 
 export function fmtDuration(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
-  if (m === 0) return `${bn(s)} সেকেন্ড`;
-  return s ? `${bn(m)} মিনিট ${bn(s)} সেকেন্ড` : `${bn(m)} মিনিট`;
+  if (m === 0) return `${bn(s)} ${tr("সেকেন্ড", "sec")}`;
+  const min = tr("মিনিট", "min");
+  return s ? `${bn(m)} ${min} ${bn(s)} ${tr("সেকেন্ড", "sec")}` : `${bn(m)} ${min}`;
 }
 
 const dhakaDay = (d: Date | string | number) => new Date(d).toLocaleDateString("en-CA", { timeZone: TZ });

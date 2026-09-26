@@ -8,7 +8,7 @@ import { Modal } from "./Modal";
 import { KbFormModal } from "./KbFormModal";
 import { Transcript } from "./Transcript";
 import { api, download, errorMessage, fetcher, qs } from "@/lib/api";
-import { FAQ_TOPICS, STATUS_META, type Escalation, type KbInput, type TopicId } from "@/lib/data";
+import { FAQ_TOPICS, labelFor, STATUS_META, type Escalation, type KbInput, type TopicId } from "@/lib/data";
 import {
   OUTCOME_META,
   bn,
@@ -30,11 +30,11 @@ type Sort = "new" | "old" | "long" | "rating";
 
 const PAGE_SIZE = 10;
 
-const PERIODS: { id: Period; label: string }[] = [
-  { id: "all", label: "সব সময়" },
-  { id: "today", label: "আজ" },
-  { id: "7d", label: "গত ৭ দিন" },
-  { id: "30d", label: "গত ৩০ দিন" },
+const PERIODS: { id: Period; bn: string; en: string }[] = [
+  { id: "all", bn: "সব সময়", en: "All time" },
+  { id: "today", bn: "আজ", en: "Today" },
+  { id: "7d", bn: "গত ৭ দিন", en: "Last 7 days" },
+  { id: "30d", bn: "গত ৩০ দিন", en: "Last 30 days" },
 ];
 
 interface ListResponse {
@@ -60,10 +60,11 @@ const StarIcon = () => (
 );
 
 function Rating({ value }: { value?: number }) {
+  const { tr } = useApp();
   if (!value) return <span style={{ color: "var(--text-3)" }}>—</span>;
   const color = value >= 4 ? "var(--success)" : value <= 2 ? "var(--danger)" : "var(--warn)";
   return (
-    <span className="rating" style={{ color }} aria-label={`রেটিং ${bn(value)} / ৫`}>
+    <span className="rating" style={{ color }} aria-label={`${tr("রেটিং", "Rating")} ${bn(value)} / ${bn(5)}`}>
       <StarIcon />
       {bn(value)}
     </span>
@@ -73,7 +74,7 @@ function Rating({ value }: { value?: number }) {
 const summaryTopic = (c: ConversationSummary) => topicLabel({ topic: c.topic } as Conversation);
 
 export function ConversationsView() {
-  const { user } = useApp();
+  const { user, tr } = useApp();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
@@ -131,7 +132,7 @@ export function ConversationsView() {
 
   const exportCsv = () => {
     download(`/api/admin/conversations/export${qs({ q: debounced, topic, outcome, period, review, sort })}`);
-    setNotice({ kind: "ok", text: `${bn(total)}টি কথোপকথন CSV হিসেবে ডাউনলোড হচ্ছে।` });
+    setNotice({ kind: "ok", text: tr(`${bn(total)}টি কথোপকথন CSV হিসেবে ডাউনলোড হচ্ছে।`, `Downloading ${total} conversations as CSV.`) });
   };
 
   const patchConv = async (id: string, patch: Partial<Pick<Conversation, "reviewed" | "flagged" | "note" | "kbAdded">>) => {
@@ -148,7 +149,7 @@ export function ConversationsView() {
       await api(`/api/admin/conversations/${id}`, { method: "DELETE" });
       setDeleteId(null);
       setOpenId(null);
-      setNotice({ kind: "ok", text: `${id} স্থায়ীভাবে মুছে ফেলা হয়েছে।` });
+      setNotice({ kind: "ok", text: tr(`${id} স্থায়ীভাবে মুছে ফেলা হয়েছে।`, `${id} was permanently deleted.`) });
       await mutate();
     } catch (e) {
       setDeleteId(null);
@@ -160,7 +161,7 @@ export function ConversationsView() {
     try {
       await api("/api/admin/kb", { body: input });
       await api(`/api/admin/conversations/${conv.id}`, { method: "PATCH", body: { kbAdded: true, reviewed: true } });
-      setNotice({ kind: "ok", text: `“${input.question}” নলেজ বেসে যোগ করা হয়েছে এবং ${conv.id} রিভিউ হয়েছে হিসেবে চিহ্নিত হয়েছে। বট এখন থেকে এটি ব্যবহার করবে।` });
+      setNotice({ kind: "ok", text: tr(`“${input.question}” নলেজ বেসে যোগ করা হয়েছে এবং ${conv.id} রিভিউ হয়েছে হিসেবে চিহ্নিত হয়েছে। বট এখন থেকে এটি ব্যবহার করবে।`, `“${input.question}” was added to the knowledge base and ${conv.id} was marked reviewed. The bot will use it from now on.`) });
       setKbDraft(null);
       await mutate();
     } catch (e) {
@@ -169,24 +170,24 @@ export function ConversationsView() {
   };
 
   const cards: { key: OutcomeFilter; label: string; color: string; value: number }[] = [
-    { key: "all", label: "মোট কথোপকথন", color: "var(--accent)", value: baseTotal },
-    { key: "resolved", label: "বট উত্তর দিয়েছে", color: "var(--success)", value: counts.resolved },
-    { key: "escalated", label: "মানব প্রতিনিধিতে হস্তান্তর", color: "var(--warn)", value: counts.escalated },
-    { key: "unanswered", label: "উত্তর পাওয়া যায়নি", color: "var(--danger)", value: counts.unanswered },
+    { key: "all", label: tr("মোট কথোপকথন", "Total conversations"), color: "var(--accent)", value: baseTotal },
+    { key: "resolved", label: tr("বট উত্তর দিয়েছে", "Bot answered"), color: "var(--success)", value: counts.resolved },
+    { key: "escalated", label: tr("মানব প্রতিনিধিতে হস্তান্তর", "Handed to a human agent"), color: "var(--warn)", value: counts.escalated },
+    { key: "unanswered", label: tr("উত্তর পাওয়া যায়নি", "Unanswered"), color: "var(--danger)", value: counts.unanswered },
   ];
 
   return (
     <>
       <div className="page-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
         <div>
-          <h1>কথোপকথন লগ</h1>
+          <h1>{tr("কথোপকথন লগ", "Conversation log")}</h1>
           <p>
-            নাগরিকদের সাথে বটের সব কথোপকথন দেখুন, যাচাই করুন এবং উত্তর না পাওয়া প্রশ্ন থেকে নলেজ বেস উন্নত করুন।
-            {data && data.pendingReview > 0 ? ` রিভিউ বাকি: ${bn(data.pendingReview)}টি।` : ""}
+            {tr("নাগরিকদের সাথে বটের সব কথোপকথন দেখুন, যাচাই করুন এবং উত্তর না পাওয়া প্রশ্ন থেকে নলেজ বেস উন্নত করুন।", "Browse all bot conversations with citizens, review them, and improve the knowledge base from unanswered questions.")}
+            {data && data.pendingReview > 0 ? tr(` রিভিউ বাকি: ${bn(data.pendingReview)}টি।`, ` Pending review: ${data.pendingReview}.`) : ""}
           </p>
         </div>
         <button type="button" className="btn btn-outline" onClick={exportCsv} disabled={total === 0}>
-          CSV এক্সপোর্ট
+          {tr("CSV এক্সপোর্ট", "Export CSV")}
         </button>
       </div>
 
@@ -207,34 +208,34 @@ export function ConversationsView() {
       </div>
 
       <div className="toolbar">
-        <input type="search" className="input" style={{ width: 260 }} value={query} onChange={(e) => filt(setQuery)(e.target.value)} placeholder="আইডি, প্রশ্ন বা নোট খুঁজুন..." aria-label="কথোপকথন খুঁজুন" />
-        <select className="input" value={topic} onChange={(e) => filt(setTopic)(e.target.value as TopicFilter)} aria-label="বিষয়">
-          <option value="all">সব বিষয়</option>
+        <input type="search" className="input" style={{ width: 260 }} value={query} onChange={(e) => filt(setQuery)(e.target.value)} placeholder={tr("আইডি, প্রশ্ন বা নোট খুঁজুন...", "Search ID, question or note...")} aria-label={tr("কথোপকথন খুঁজুন", "Search conversations")} />
+        <select className="input" value={topic} onChange={(e) => filt(setTopic)(e.target.value as TopicFilter)} aria-label={tr("বিষয়", "Topic")}>
+          <option value="all">{tr("সব বিষয়", "All topics")}</option>
           {FAQ_TOPICS.map((t) => (
             <option key={t.id} value={t.id}>
-              {t.label}
+              {labelFor(t.id)}
             </option>
           ))}
-          <option value="none">অনির্ধারিত</option>
+          <option value="none">{tr("অনির্ধারিত", "Unclassified")}</option>
         </select>
-        <select className="input" value={period} onChange={(e) => filt(setPeriod)(e.target.value as Period)} aria-label="সময়কাল">
+        <select className="input" value={period} onChange={(e) => filt(setPeriod)(e.target.value as Period)} aria-label={tr("সময়কাল", "Period")}>
           {PERIODS.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.label}
+              {tr(p.bn, p.en)}
             </option>
           ))}
         </select>
-        <select className="input" value={review} onChange={(e) => filt(setReview)(e.target.value as ReviewFilter)} aria-label="রিভিউ অবস্থা">
-          <option value="all">সব রিভিউ অবস্থা</option>
-          <option value="pending">রিভিউ বাকি</option>
-          <option value="done">রিভিউ হয়েছে</option>
-          <option value="flagged">ফ্ল্যাগ করা</option>
+        <select className="input" value={review} onChange={(e) => filt(setReview)(e.target.value as ReviewFilter)} aria-label={tr("রিভিউ অবস্থা", "Review status")}>
+          <option value="all">{tr("সব রিভিউ অবস্থা", "All review statuses")}</option>
+          <option value="pending">{tr("রিভিউ বাকি", "Pending review")}</option>
+          <option value="done">{tr("রিভিউ হয়েছে", "Reviewed")}</option>
+          <option value="flagged">{tr("ফ্ল্যাগ করা", "Flagged")}</option>
         </select>
-        <select className="input" value={sort} onChange={(e) => filt(setSort)(e.target.value as Sort)} aria-label="সাজান">
-          <option value="new">নতুন আগে</option>
-          <option value="old">পুরনো আগে</option>
-          <option value="long">বেশি বার্তা আগে</option>
-          <option value="rating">কম রেটিং আগে</option>
+        <select className="input" value={sort} onChange={(e) => filt(setSort)(e.target.value as Sort)} aria-label={tr("সাজান", "Sort")}>
+          <option value="new">{tr("নতুন আগে", "Newest first")}</option>
+          <option value="old">{tr("পুরনো আগে", "Oldest first")}</option>
+          <option value="long">{tr("বেশি বার্তা আগে", "Most messages first")}</option>
+          <option value="rating">{tr("কম রেটিং আগে", "Lowest rating first")}</option>
         </select>
       </div>
 
@@ -243,14 +244,14 @@ export function ConversationsView() {
           <table className="compact-first">
             <thead>
               <tr>
-                <th>আইডি / সময়</th>
-                <th>প্রথম প্রশ্ন</th>
-                <th>বিষয়</th>
-                <th>প্রশ্ন</th>
-                <th>ফলাফল</th>
-                <th>রেটিং</th>
-                <th>রিভিউ</th>
-                <th>অ্যাকশন</th>
+                <th>{tr("আইডি / সময়", "ID / time")}</th>
+                <th>{tr("প্রথম প্রশ্ন", "First question")}</th>
+                <th>{tr("বিষয়", "Topic")}</th>
+                <th>{tr("প্রশ্ন", "Questions")}</th>
+                <th>{tr("ফলাফল", "Outcome")}</th>
+                <th>{tr("রেটিং", "Rating")}</th>
+                <th>{tr("রিভিউ", "Review")}</th>
+                <th>{tr("অ্যাকশন", "Action")}</th>
               </tr>
             </thead>
             <tbody>
@@ -280,18 +281,18 @@ export function ConversationsView() {
                     <td>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <span className="badge" style={{ background: c.reviewed ? "var(--success-soft)" : "var(--surface-2)", color: c.reviewed ? "var(--success)" : "var(--text-2)" }}>
-                          {c.reviewed ? "হয়েছে" : "বাকি"}
+                          {c.reviewed ? tr("হয়েছে", "Done") : tr("বাকি", "Pending")}
                         </span>
                         {c.flagged && (
                           <span className="badge" style={{ background: "var(--warn-soft)", color: "var(--warn)" }}>
-                            ফ্ল্যাগ
+                            {tr("ফ্ল্যাগ", "Flagged")}
                           </span>
                         )}
                       </div>
                     </td>
                     <td>
                       <button type="button" className="btn-link" onClick={() => setOpenId(c.id)}>
-                        দেখুন →
+                        {tr("দেখুন →", "View →")}
                       </button>
                     </td>
                   </tr>
@@ -301,13 +302,13 @@ export function ConversationsView() {
           </table>
         </div>
 
-        {isLoading && !data && <div className="empty">লোড হচ্ছে…</div>}
+        {isLoading && !data && <div className="empty">{tr("লোড হচ্ছে…", "Loading…")}</div>}
         {data && total === 0 && (
           <div className="empty">
-            <div>{filtersActive ? "এই ফিল্টারে কোনো কথোপকথন পাওয়া যায়নি।" : "এখনও কোনো কথোপকথন নেই।"}</div>
+            <div>{filtersActive ? tr("এই ফিল্টারে কোনো কথোপকথন পাওয়া যায়নি।", "No conversations match these filters.") : tr("এখনও কোনো কথোপকথন নেই।", "No conversations yet.")}</div>
             {filtersActive && (
               <button type="button" className="btn btn-outline" onClick={resetFilters} style={{ marginTop: 10 }}>
-                ফিল্টার মুছুন
+                {tr("ফিল্টার মুছুন", "Clear filters")}
               </button>
             )}
           </div>
@@ -316,26 +317,26 @@ export function ConversationsView() {
         {total > 0 && (
           <div className="pager">
             <div style={{ color: "var(--text-2)" }}>
-              {bn(total)}টির মধ্যে {bn(safePage * PAGE_SIZE + 1)}–{bn(Math.min((safePage + 1) * PAGE_SIZE, total))}
-              {data && data.ratedCount > 0 && data.avgRating !== null && ` · গড় রেটিং ${bn(data.avgRating, 1)} / ৫ · সন্তুষ্ট (৪–৫ স্টার): ${bn(Math.round((data.satisfiedCount / data.ratedCount) * 100))}% (${bn(data.ratedCount)}টি রেটিং)`}
+              {tr(`${bn(total)}টির মধ্যে ${bn(safePage * PAGE_SIZE + 1)}–${bn(Math.min((safePage + 1) * PAGE_SIZE, total))}`, `${safePage * PAGE_SIZE + 1}–${Math.min((safePage + 1) * PAGE_SIZE, total)} of ${total}`)}
+              {data && data.ratedCount > 0 && data.avgRating !== null && ` · ${tr("গড় রেটিং", "Average rating")} ${bn(data.avgRating, 1)} / ${bn(5)} · ${tr("সন্তুষ্ট (৪–৫ স্টার)", "Satisfied (4–5 stars)")}: ${bn(Math.round((data.satisfiedCount / data.ratedCount) * 100))}% (${bn(data.ratedCount)} ${tr("টি রেটিং", "ratings")})`}
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <button type="button" className="btn btn-outline" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>
-                ← আগের
+                {tr("← আগের", "← Previous")}
               </button>
               <span style={{ fontSize: 12, color: "var(--text-2)" }}>
                 {bn(safePage + 1)} / {bn(totalPages)}
               </span>
               <button type="button" className="btn btn-outline" disabled={safePage >= totalPages - 1} onClick={() => setPage(safePage + 1)}>
-                পরের →
+                {tr("পরের →", "Next →")}
               </button>
             </div>
           </div>
         )}
       </div>
 
-      <Modal open={!!openId} title={openId ? `কথোপকথন ${openId}` : ""} onClose={() => setOpenId(null)} wide>
-        {!detail && <p className="hint">লোড হচ্ছে…</p>}
+      <Modal open={!!openId} title={openId ? `${tr("কথোপকথন", "Conversation")} ${openId}` : ""} onClose={() => setOpenId(null)} wide>
+        {!detail && <p className="hint">{tr("লোড হচ্ছে…", "Loading…")}</p>}
         {detail && (
           <ConversationDetail
             key={detail.conversation.id}
@@ -352,14 +353,14 @@ export function ConversationsView() {
         )}
       </Modal>
 
-      <Modal open={!!deleteId} title="কথোপকথন স্থায়ীভাবে মুছবেন?" onClose={() => setDeleteId(null)}>
-        <p>{deleteId} এবং এর সম্পূর্ণ প্রতিলিপি মুছে যাবে। এটি ফেরানো যাবে না।</p>
+      <Modal open={!!deleteId} title={tr("কথোপকথন স্থায়ীভাবে মুছবেন?", "Permanently delete this conversation?")} onClose={() => setDeleteId(null)}>
+        <p>{tr(`${deleteId} এবং এর সম্পূর্ণ প্রতিলিপি মুছে যাবে। এটি ফেরানো যাবে না।`, `${deleteId} and its full transcript will be deleted. This cannot be undone.`)}</p>
         <div className="modal-actions">
           <button type="button" className="btn btn-outline" onClick={() => setDeleteId(null)} data-autofocus>
-            বাতিল
+            {tr("বাতিল", "Cancel")}
           </button>
           <button type="button" className="btn btn-danger" onClick={() => deleteId && removeConv(deleteId)}>
-            হ্যাঁ, মুছুন
+            {tr("হ্যাঁ, মুছুন", "Yes, delete")}
           </button>
         </div>
       </Modal>
@@ -392,6 +393,7 @@ function ConversationDetail({
   onClose: () => void;
   onDelete?: () => void;
 }) {
+  const { tr } = useApp();
   const [note, setNote] = useState(conv.note);
   const outcome = deriveOutcome(conv);
   const meta = OUTCOME_META[outcome];
@@ -401,23 +403,23 @@ function ConversationDetail({
     <>
       <dl className="meta-grid">
         <div>
-          <dt>শুরুর সময়</dt>
+          <dt>{tr("শুরুর সময়", "Started")}</dt>
           <dd>{fmtDateTime(conv.startedAt)}</dd>
         </div>
         <div>
-          <dt>স্থায়িত্ব</dt>
+          <dt>{tr("স্থায়িত্ব", "Duration")}</dt>
           <dd>{fmtDuration(durationSeconds(conv))}</dd>
         </div>
         <div>
-          <dt>বিষয়</dt>
+          <dt>{tr("বিষয়", "Topic")}</dt>
           <dd>{topicLabel(conv)}</dd>
         </div>
         <div>
-          <dt>ভাষা</dt>
+          <dt>{tr("ভাষা", "Language")}</dt>
           <dd>{conv.lang === "en" ? "English" : "বাংলা"}</dd>
         </div>
         <div>
-          <dt>ফলাফল</dt>
+          <dt>{tr("ফলাফল", "Outcome")}</dt>
           <dd>
             <span className="badge" style={{ background: meta.bg, color: meta.color }}>
               {meta.label}
@@ -425,25 +427,25 @@ function ConversationDetail({
           </dd>
         </div>
         <div>
-          <dt>নাগরিকের রেটিং</dt>
+          <dt>{tr("নাগরিকের রেটিং", "Citizen rating")}</dt>
           <dd>
             <Rating value={conv.rating} />
           </dd>
         </div>
         <div style={{ gridColumn: "1 / -1" }}>
-          <dt>নাগরিক</dt>
+          <dt>{tr("নাগরিক", "Citizen")}</dt>
           <dd>
             {escalation ? (
               <>
-                {escalation.citizen} · হস্তান্তর {escalation.id}{" "}
+                {escalation.citizen} · {tr("হস্তান্তর", "Hand-off")} {escalation.id}{" "}
                 <span className="badge" style={{ background: STATUS_META[escalation.status].bg, color: STATUS_META[escalation.status].color }}>
                   {STATUS_META[escalation.status].label}
                 </span>
               </>
             ) : conv.escalationId ? (
-              `হস্তান্তর ${conv.escalationId}`
+              `${tr("হস্তান্তর", "Hand-off")} ${conv.escalationId}`
             ) : (
-              "বেনামী সেশন"
+              tr("বেনামী সেশন", "Anonymous session")
             )}
           </dd>
         </div>
@@ -452,41 +454,41 @@ function ConversationDetail({
       <Transcript messages={conv.messages} />
 
       <label className="field">
-        অভ্যন্তরীণ নোট
-        <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="যেমন: কোন KB এন্ট্রি হালনাগাদ করা দরকার..." />
+        {tr("অভ্যন্তরীণ নোট", "Internal note")}
+        <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder={tr("যেমন: কোন KB এন্ট্রি হালনাগাদ করা দরকার...", "e.g. which KB entry needs updating...")} />
       </label>
 
       <div className="modal-actions" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button type="button" className="btn btn-outline" onClick={() => onUpdate({ reviewed: !conv.reviewed })}>
-            {conv.reviewed ? "রিভিউ বাতিল করুন" : "রিভিউ হয়েছে ✓"}
+            {conv.reviewed ? tr("রিভিউ বাতিল করুন", "Unmark reviewed") : tr("রিভিউ হয়েছে ✓", "Mark reviewed ✓")}
           </button>
           <button type="button" className="btn btn-outline" onClick={() => onUpdate({ flagged: !conv.flagged })} aria-pressed={conv.flagged}>
-            {conv.flagged ? "ফ্ল্যাগ সরান" : "উন্নতির জন্য ফ্ল্যাগ করুন"}
+            {conv.flagged ? tr("ফ্ল্যাগ সরান", "Remove flag") : tr("উন্নতির জন্য ফ্ল্যাগ করুন", "Flag for improvement")}
           </button>
           {onDelete && (
             <button type="button" className="btn btn-outline" style={{ color: "var(--danger)" }} onClick={onDelete}>
-              মুছে ফেলুন
+              {tr("মুছে ফেলুন", "Delete")}
             </button>
           )}
           {noteDirty && (
             <button type="button" className="btn btn-outline" onClick={() => onUpdate({ note: note.trim() })}>
-              নোট সংরক্ষণ
+              {tr("নোট সংরক্ষণ", "Save note")}
             </button>
           )}
           {outcome === "unanswered" &&
             (conv.kbAdded ? (
               <span className="badge" style={{ background: "var(--success-soft)", color: "var(--success)", alignSelf: "center" }}>
-                নলেজ বেসে যোগ করা হয়েছে
+                {tr("নলেজ বেসে যোগ করা হয়েছে", "Added to knowledge base")}
               </span>
             ) : (
               <button type="button" className="btn btn-solid" onClick={onAddKb}>
-                নলেজ বেসে যোগ করুন
+                {tr("নলেজ বেসে যোগ করুন", "Add to knowledge base")}
               </button>
             ))}
         </div>
         <button type="button" className="btn btn-solid" onClick={onClose} data-autofocus>
-          বন্ধ করুন
+          {tr("বন্ধ করুন", "Close")}
         </button>
       </div>
     </>

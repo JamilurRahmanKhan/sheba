@@ -17,15 +17,15 @@ const TABS: { href: string; key: I18nKey; isActive: (p: string) => boolean }[] =
 
 export function TopBar() {
   const pathname = usePathname();
-  const { t, lang, setLang, toggleTheme, user, logout } = useApp();
+  const { t, tr, lang, setLang, toggleTheme, user, logout } = useApp();
 
   return (
     <header className="topbar">
       <div className="brand">
         <div className="brand-mark">AI</div>
-        <div className="brand-name">সরকারি সেবা সহায়ক</div>
+        <div className="brand-name">{tr("সরকারি সেবা সহায়ক", "Government Service Assistant")}</div>
       </div>
-      <nav className="tabs" aria-label="প্রধান মেনু">
+      <nav className="tabs" aria-label={tr("প্রধান মেনু", "Main menu")}>
         {TABS.filter((tab) => tab.href === "/chat" || user).map((tab) => (
           <Link
             key={tab.href}
@@ -38,7 +38,7 @@ export function TopBar() {
         ))}
       </nav>
       <div className="topbar-right">
-        <div className="langtoggle" role="group" aria-label="ভাষা">
+        <div className="langtoggle" role="group" aria-label={tr("ভাষা", "Language")}>
           <button type="button" aria-pressed={lang === "bn"} onClick={() => setLang("bn")}>
             বাংলা
           </button>
@@ -52,20 +52,20 @@ export function TopBar() {
               {user.name}
             </span>
             <button type="button" className="btn btn-outline" onClick={logout}>
-              লগআউট
+              {tr("লগআউট", "Log out")}
             </button>
           </div>
         ) : (
           <Link href="/login" className="btn btn-outline">
-            স্টাফ লগইন
+            {tr("স্টাফ লগইন", "Staff login")}
           </Link>
         )}
         <button
           type="button"
           className="themetoggle"
           onClick={toggleTheme}
-          aria-label="থিম পরিবর্তন করুন"
-          title="থিম পরিবর্তন করুন"
+          aria-label={tr("থিম পরিবর্তন করুন", "Toggle theme")}
+          title={tr("থিম পরিবর্তন করুন", "Toggle theme")}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="4" />

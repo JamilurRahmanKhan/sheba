@@ -1,4 +1,5 @@
 import { FALLBACK, GREETING } from "./data";
+import { getFormatLang, tr } from "./i18n";
 
 export type Role = "admin" | "officer";
 
@@ -80,7 +81,11 @@ export const DEFAULT_SETTINGS: Settings = {
   ],
 };
 
-export const WEEKDAYS = ["রবিবার", "সোমবার", "মঙ্গলবার", "বুধবার", "বৃহস্পতিবার", "শুক্রবার", "শনিবার"];
+const WEEKDAYS_BN = ["রবিবার", "সোমবার", "মঙ্গলবার", "বুধবার", "বৃহস্পতিবার", "শুক্রবার", "শনিবার"];
+const WEEKDAYS_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+/** Weekday names in the active language (index 0 = Sunday). */
+export const weekdayName = (d: number) => (getFormatLang() === "en" ? WEEKDAYS_EN : WEEKDAYS_BN)[d];
+export const WEEKDAYS = WEEKDAYS_BN;
 
 /* ---------------- helpers ---------------- */
 
@@ -130,9 +135,9 @@ export function withinWorkingHours(hours: Settings["hours"], date: Date = new Da
 
 /** Plain-text summary of the support hours. */
 export function hoursSummary(hours: Settings["hours"]): string {
-  if (!hours.enabled) return "সার্বক্ষণিক";
+  if (!hours.enabled) return tr("সার্বক্ষণিক", "24/7");
   const days = [...hours.days].sort();
-  const label = days.length ? days.map((d) => WEEKDAYS[d]).join(", ") : "কোনো দিন নয়";
+  const label = days.length ? days.map((d) => weekdayName(d)).join(", ") : tr("কোনো দিন নয়", "No days");
   return `${label} · ${hours.start}–${hours.end}`;
 }
 
@@ -142,22 +147,22 @@ export type SettingsErrors = Partial<Record<"panelTitle" | "departmentName" | "s
 
 export function validateSettings(s: Settings): SettingsErrors {
   const e: SettingsErrors = {};
-  if (!s.org.panelTitle.trim()) e.panelTitle = "প্যানেলের নাম লিখুন।";
-  if (!s.org.departmentName.trim()) e.departmentName = "বিভাগের নাম লিখুন।";
-  if (!Number.isInteger(s.slaMinutes) || s.slaMinutes < 1 || s.slaMinutes > 240) e.slaMinutes = "১ থেকে ২৪০ এর মধ্যে একটি পূর্ণসংখ্যা দিন।";
+  if (!s.org.panelTitle.trim()) e.panelTitle = tr("প্যানেলের নাম লিখুন।", "Enter the panel name.");
+  if (!s.org.departmentName.trim()) e.departmentName = tr("বিভাগের নাম লিখুন।", "Enter the department name.");
+  if (!Number.isInteger(s.slaMinutes) || s.slaMinutes < 1 || s.slaMinutes > 240) e.slaMinutes = tr("১ থেকে ২৪০ এর মধ্যে একটি পূর্ণসংখ্যা দিন।", "Enter a whole number between 1 and 240.");
   if (s.hours.enabled) {
     if (s.hours.days.length === 0) e.hours = "কমপক্ষে একটি কার্যদিবস নির্বাচন করুন।";
-    else if (!/^\d{2}:\d{2}$/.test(s.hours.start) || !/^\d{2}:\d{2}$/.test(s.hours.end)) e.hours = "সময় সঠিক ফরম্যাটে দিন।";
-    else if (s.hours.start >= s.hours.end) e.hours = "শেষ সময় শুরুর সময়ের পরে হতে হবে।";
+    else if (!/^\d{2}:\d{2}$/.test(s.hours.start) || !/^\d{2}:\d{2}$/.test(s.hours.end)) e.hours = tr("সময় সঠিক ফরম্যাটে দিন।", "Enter the time in a valid format.");
+    else if (s.hours.start >= s.hours.end) e.hours = tr("শেষ সময় শুরুর সময়ের পরে হতে হবে।", "The end time must be after the start time.");
   }
-  if (!s.handoff.offHoursMessage.trim()) e.offHoursMessage = "বার্তাটি খালি রাখা যাবে না।";
-  if (!s.bot.greeting.trim()) e.greeting = "স্বাগত বার্তা খালি রাখা যাবে না।";
-  if (!s.bot.fallback.trim()) e.fallback = "বার্তাটি খালি রাখা যাবে না।";
-  if (!s.bot.maintenanceMessage.trim()) e.maintenanceMessage = "বার্তাটি খালি রাখা যাবে না।";
+  if (!s.handoff.offHoursMessage.trim()) e.offHoursMessage = tr("বার্তাটি খালি রাখা যাবে না।", "The message cannot be empty.");
+  if (!s.bot.greeting.trim()) e.greeting = tr("স্বাগত বার্তা খালি রাখা যাবে না।", "The welcome message cannot be empty.");
+  if (!s.bot.fallback.trim()) e.fallback = tr("বার্তাটি খালি রাখা যাবে না।", "The message cannot be empty.");
+  if (!s.bot.maintenanceMessage.trim()) e.maintenanceMessage = tr("বার্তাটি খালি রাখা যাবে না।", "The message cannot be empty.");
   if (!Number.isInteger(s.retentionDays) || (s.retentionDays !== 0 && (s.retentionDays < 7 || s.retentionDays > 3650)))
-    e.retentionDays = "০ (চিরকাল রাখুন) অথবা ৭ থেকে ৩৬৫০ দিন দিন।";
-  if (s.replyTemplates.length > 20) e.templates = "সর্বোচ্চ ২০টি টেমপ্লেট রাখা যাবে।";
-  else if (s.replyTemplates.some((t) => !t.title.trim() || !t.text.trim())) e.templates = "প্রতিটি টেমপ্লেটে শিরোনাম ও লেখা থাকতে হবে।";
+    e.retentionDays = tr("০ (চিরকাল রাখুন) অথবা ৭ থেকে ৩৬৫০ দিন দিন।", "Enter 0 (keep forever) or 7 to 3650 days.");
+  if (s.replyTemplates.length > 20) e.templates = tr("সর্বোচ্চ ২০টি টেমপ্লেট রাখা যাবে।", "At most 20 templates are allowed.");
+  else if (s.replyTemplates.some((t) => !t.title.trim() || !t.text.trim())) e.templates = tr("প্রতিটি টেমপ্লেটে শিরোনাম ও লেখা থাকতে হবে।", "Each template needs a title and text.");
   return e;
 }
 

@@ -1,5 +1,6 @@
 import type { Conversation } from "./conversations";
 import { bn, fmtClock } from "./conversations";
+import { tr } from "./i18n";
 import type { EscActivity, Escalation, Priority, SeedEscalation } from "./data";
 import { DEMO_OFFICERS, workingMinutesBetween, type Settings } from "./settings";
 
@@ -8,8 +9,8 @@ type Hours = Settings["hours"];
 const AGENTS = DEMO_OFFICERS.map((m) => m.name);
 
 export const PRIORITY_META: Record<Priority, { label: string; bg: string; color: string }> = {
-  normal: { label: "সাধারণ", bg: "var(--surface-2)", color: "var(--text-2)" },
-  urgent: { label: "জরুরি", bg: "var(--danger-soft)", color: "var(--danger)" },
+  normal: { get label() { return tr("সাধারণ", "Normal"); }, bg: "var(--surface-2)", color: "var(--text-2)" },
+  urgent: { get label() { return tr("জরুরি", "Urgent"); }, bg: "var(--danger-soft)", color: "var(--danger)" },
 };
 
 const MIN = 60_000;
@@ -100,14 +101,17 @@ export const minutesBetween = (fromIso: string, to: number | string): number =>
   Math.max(0, Math.round((new Date(to).getTime() - new Date(fromIso).getTime()) / MIN));
 
 export function fmtMinutes(total: number): string {
-  if (total < 1) return "১ মিনিটের কম";
-  if (total < 60) return `${bn(total)} মিনিট`;
+  const min = tr("মিনিট", "min");
+  const hr = tr("ঘণ্টা", "hr");
+  const day = tr("দিন", "d");
+  if (total < 1) return tr("১ মিনিটের কম", "under 1 min");
+  if (total < 60) return `${bn(total)} ${min}`;
   const h = Math.floor(total / 60);
   const m = total % 60;
-  if (h < 24) return m ? `${bn(h)} ঘণ্টা ${bn(m)} মিনিট` : `${bn(h)} ঘণ্টা`;
+  if (h < 24) return m ? `${bn(h)} ${hr} ${bn(m)} ${min}` : `${bn(h)} ${hr}`;
   const d = Math.floor(h / 24);
   const rh = h % 24;
-  return rh ? `${bn(d)} দিন ${bn(rh)} ঘণ্টা` : `${bn(d)} দিন`;
+  return rh ? `${bn(d)} ${day} ${bn(rh)} ${hr}` : `${bn(d)} ${day}`;
 }
 
 const span = (fromIso: string, to: number | string, hours?: Hours) =>
@@ -119,10 +123,10 @@ export const isOverdue = (e: Escalation, now: number, slaMinutes: number, hours?
 
 /** Time column: waiting (new) / running (ongoing) / total handling time (resolved). */
 export function timingLabel(e: Escalation, now: number, hours?: Hours): { prefix: string; text: string } {
-  const bh = hours?.enabled ? " (অফিস সময়ে)" : "";
-  if (e.status === "new") return { prefix: `অপেক্ষা${bh}`, text: fmtMinutes(span(e.createdAt, now, hours)) };
-  if (e.status === "ongoing") return { prefix: `চলছে${bh}`, text: fmtMinutes(span(e.acceptedAt ?? e.createdAt, now, hours)) };
-  return { prefix: `সমাধানে${bh}`, text: fmtMinutes(span(e.createdAt, e.resolvedAt ?? now, hours)) };
+  const bh = hours?.enabled ? tr(" (অফিস সময়ে)", " (working hours)") : "";
+  if (e.status === "new") return { prefix: `${tr("অপেক্ষা", "Waiting")}${bh}`, text: fmtMinutes(span(e.createdAt, now, hours)) };
+  if (e.status === "ongoing") return { prefix: `${tr("চলছে", "In progress")}${bh}`, text: fmtMinutes(span(e.acceptedAt ?? e.createdAt, now, hours)) };
+  return { prefix: `${tr("সমাধানে", "Resolved in")}${bh}`, text: fmtMinutes(span(e.createdAt, e.resolvedAt ?? now, hours)) };
 }
 
 export const firstResponseMinutes = (e: Escalation, hours?: Hours): number | null => (e.acceptedAt ? span(e.createdAt, e.acceptedAt, hours) : null);

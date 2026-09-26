@@ -1,3 +1,4 @@
+import { getFormatLang, tr } from "./i18n";
 /* Seed data ported from the original HTML prototype. Answers use "\n" for line breaks. */
 
 export type TopicId =
@@ -207,8 +208,62 @@ export const GREETING =
 export const FALLBACK =
   "দুঃখিত, প্রশ্নটি সম্পূর্ণ বুঝতে পারিনি। অনুগ্রহ করে আরেকটু স্পষ্ট করে লিখুন, পাশের তালিকা থেকে একটি বিষয় বেছে নিন, অথবা মানব প্রতিনিধির সাথে কথা বলুন।";
 
+const TOPIC_EN: Record<string, string> = {
+  birth: "Birth registration",
+  nid: "National ID (NID)",
+  passport: "Passport services",
+  trade: "Trade licence",
+  land: "Land & khatian",
+  allowance: "Social security allowance",
+  tax: "Income tax & VAT",
+  complaint: "File a complaint",
+};
+
+const DEPT_EN: Record<string, string> = {
+  "ভূমি সেবা": "Land services",
+  "সামাজিক নিরাপত্তা": "Social security",
+  "পাসপোর্ট": "Passport",
+  "ট্রেড লাইসেন্স": "Trade licence",
+  "সাধারণ": "General",
+};
+
+/** Translate a server-supplied Bengali topic label (e.g. on the dashboard) into the active language. */
+export function localizeTopic(label: string): string {
+  if (label === "অন্যান্য") return tr(label, "Other");
+  const dept = DEPT_EN[label];
+  if (dept) return tr(label, dept);
+  const t = FAQ_TOPICS.find((x) => x.label === label);
+  return t ? labelFor(t.id) : label;
+}
+
+export const GREETING_EN =
+  "Assalamu alaikum! I am the Government Service Assistant AI. You can ask me about birth registration, national ID, passports, land services and other government services. (I can only answer questions about government services.)";
+
+/** The stock greeting in English when English is active; custom greetings are shown as written. */
+export function localizeGreeting(text: string): string {
+  return getFormatLang() === "en" && text.startsWith("আসসালামু আলাইকুম! আমি বাংলাদেশ সরকারের সেবা সহায়ক AI") ? GREETING_EN : text;
+}
+
+const SYSTEM_TEXT_EN: [string, string][] = [
+  ["দুঃখিত, প্রশ্নটি সম্পূর্ণ বুঝতে পারিনি।", "Sorry, I did not fully understand the question. Please write it a little more clearly, pick a topic from the list, or talk to a human agent."],
+  ["একজন মানব প্রতিনিধির কাছে হস্তান্তর করা হয়েছে।", "Handed off to a human agent. Please wait."],
+  ["আপনার অনুরোধ নথিভুক্ত করা হয়েছে।", "Your request has been recorded. A human agent will join this conversation on the next working day."],
+  ["আপনার প্রশ্নটি সমাধান হিসেবে চিহ্নিত করা হয়েছে।", "Your question has been marked as resolved. Thank you."],
+  ["আপনার প্রশ্নটি পুনরায় খোলা হয়েছে।", "Your question has been reopened."],
+];
+
+/** Stock system / fallback messages are stored in Bengali; show their English version when English is active. */
+export function localizeSystemText(text: string): string {
+  if (getFormatLang() !== "en") return text;
+  const hit = SYSTEM_TEXT_EN.find(([bnStart]) => text.startsWith(bnStart));
+  if (hit) return hit[1];
+  const joined = /^প্রতিনিধি (.+) কথোপকথনে যুক্ত হয়েছেন।$/.exec(text);
+  return joined ? `Agent ${joined[1]} has joined the conversation.` : text;
+}
+
 export function labelFor(id: string): string {
-  return FAQ_TOPICS.find((t) => t.id === id)?.label ?? id;
+  const bn = FAQ_TOPICS.find((t) => t.id === id)?.label ?? id;
+  return getFormatLang() === "en" ? (TOPIC_EN[id] ?? bn) : bn;
 }
 
 export function matchTopic(text: string): FaqTopic | null {
@@ -268,9 +323,9 @@ export const SEED_ESCALATIONS: SeedEscalation[] = [
 ];
 
 export const STATUS_META: Record<EscStatus, { label: string; bg: string; color: string }> = {
-  new: { label: "নতুন", bg: "var(--info-soft)", color: "var(--info)" },
-  ongoing: { label: "চলমান", bg: "var(--warn-soft)", color: "var(--warn)" },
-  resolved: { label: "সমাধান হয়েছে", bg: "var(--success-soft)", color: "var(--success)" },
+  new: { get label() { return tr("নতুন", "New"); }, bg: "var(--info-soft)", color: "var(--info)" },
+  ongoing: { get label() { return tr("চলমান", "In progress"); }, bg: "var(--warn-soft)", color: "var(--warn)" },
+  resolved: { get label() { return tr("সমাধান হয়েছে", "Resolved"); }, bg: "var(--success-soft)", color: "var(--success)" },
 };
 
 export const TOPIC_STATS = [

@@ -1,6 +1,14 @@
 export type Lang = "bn" | "en";
 
-/* Only the strings the prototype translated. Everything else is Bengali-only for now. */
+/* Language for code that renders outside React (formatters, label tables). Set by AppProvider. */
+let current: Lang = "bn";
+export const setFormatLang = (l: Lang) => {
+  current = l;
+};
+export const getFormatLang = (): Lang => current;
+/** Inline bilingual string: tr("বাংলা", "English"). */
+export const tr = (bn: string, en: string): string => (current === "en" ? en : bn);
+
 const DICT = {
   "tab.chat": { bn: "চ্যাট", en: "Chat" },
   "tab.admin": { bn: "অ্যাডমিন ড্যাশবোর্ড", en: "Admin dashboard" },
