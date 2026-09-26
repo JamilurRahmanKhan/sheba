@@ -3,7 +3,7 @@
  * which they drop before and after. Point them elsewhere with TEST_MONGODB_URI (default: local Docker Mongo).
  * If no database is reachable the whole file is skipped.
  */
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { MongoClient } from "mongodb";
 
 const URI = process.env.TEST_MONGODB_URI || "mongodb://127.0.0.1:27017";
@@ -44,6 +44,8 @@ describe.skipIf(!up)("integration (MongoDB)", () => {
       data: await import("@/server/data"),
       http: await import("@/server/http"),
       audit: await import("@/server/audit"),
+      settings: await import("@/server/settings"),
+      lib: await import("@/lib/settings"),
     };
     // A small knowledge base + the users the assignment check needs
     await (await m.db.col.kb()).insertMany([
@@ -224,5 +226,74 @@ describe.skipIf(!up)("integration (MongoDB)", () => {
     expect((await m.audit.listAudit(p({ action: "kb.*" }))).total).toBe(15);
     expect((await m.audit.listAudit(p({ q: "tanvir" }))).total).toBe(1);
     expect(JSON.stringify(all.items)).not.toContain("expireAt");
+  });
+
+  describe("AI answers", () => {
+    const aiEnv = { LLM_API_KEY: "k", LLM_BASE_URL: "https://llm.example/v1", LLM_MODEL: "m" };
+    const reply = (content: string, status = 200) => vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status }));
+    const setAi = async (on: boolean) => m.settings.saveSettings({ ...m.lib.DEFAULT_SETTINGS, bot: { ...m.lib.DEFAULT_SETTINGS.bot, ai: on } });
+    const usesOf = async (id: string) => (await (await m.db.col.kb()).findOne({ _id: id }))!.uses;
+    beforeAll(async () => {
+      Object.assign(process.env, aiEnv);
+      await (await m.db.col.kb()).insertOne({ _id: "kai", question: "ভূমি উন্নয়ন কর অনলাইনে কীভাবে দেব", category: "land", uses: 0, updated: "2026-01-01", active: true, answer: "land.gov.bd -এ অনলাইন খাজনা অপশনে যান।" });
+      await setAi(true);
+    });
+    afterAll(() => {
+      Object.keys(aiEnv).forEach((k) => delete process.env[k]);
+      vi.unstubAllGlobals();
+    });
+
+    it("uses a strong keyword match verbatim WITHOUT calling the AI", async () => {
+      const f = reply("IDS: kai\n\nx");
+      vi.stubGlobal("fetch", f);
+      const r = await say("ভূমি উন্নয়ন কর অনলাইনে কীভাবে দেব");
+      expect(f).not.toHaveBeenCalled();
+      expect(r.messages[1].text).toContain("land.gov.bd");
+      expect(r.messages[1].ai).toBeUndefined();
+    });
+
+    it("asks the AI for a paraphrase, marks the message as AI, and counts usage of the entry it used", async () => {
+      const f = reply("IDS: kai\n\nখাজনা পরিশোধ করতে land.gov.bd-এর অনলাইন খাজনা অপশন ব্যবহার করুন।");
+      vi.stubGlobal("fetch", f);
+      const before = await usesOf("kai");
+      const r = await say("জমির ট্যাক্স ইন্টারনেটে দিতে চাই কোন ওয়েবসাইটে");
+      expect(f).toHaveBeenCalledTimes(1);
+      expect(r.messages[1].ai).toBe(true);
+      expect(r.messages[1].text).toContain("খাজনা");
+      expect(await usesOf("kai")).toBe(before + 1);
+    });
+
+    it("falls back to the normal bot when the AI declines, errors, or runs out of credits", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      for (const f of [reply("IDS: NONE"), reply("{}", 402), reply("{}", 429), vi.fn(async () => { throw new Error("network"); })]) {
+        vi.stubGlobal("fetch", f);
+        const r = await say("আকাশে কয়টা তারা আছে");
+        expect(r.messages[1].fallback).toBe(true);
+        expect(r.messages[1].ai).toBeUndefined();
+      }
+    });
+
+    it("never calls the AI when the admin switched it off, or during a human hand-off", async () => {
+      const f = reply("IDS: kai\n\nx");
+      vi.stubGlobal("fetch", f);
+      await setAi(false);
+      await say("জমির ট্যাক্স ইন্টারনেটে দিতে চাই কোন ওয়েবসাইটে");
+      expect(f).not.toHaveBeenCalled();
+      await setAi(true);
+      const c = await say("হ্যালো");
+      await m.chat.escalateConversation(c.conversationId, c.token);
+      f.mockClear(); // the opening message above may legitimately use the AI; only the hand-off period matters
+      await say("জমির ট্যাক্স ইন্টারনেটে দিতে চাই কোন ওয়েবসাইটে", { conversationId: c.conversationId, token: c.token });
+      expect(f).not.toHaveBeenCalled();
+    });
+
+    it("enforces the per-conversation AI budget (then uses the keyword bot, no error)", async () => {
+      const f = reply("IDS: kai\n\nউত্তর");
+      vi.stubGlobal("fetch", f);
+      const c = await say("শুরু");
+      for (let i = 0; i < 24; i++) await say(`জমির ট্যাক্স ইন্টারনেটে দিতে চাই কোন ওয়েবসাইটে ${i}`, { conversationId: c.conversationId, token: c.token });
+      const calls = (f.mock.calls as unknown[]).length;
+      expect(calls).toBeLessThanOrEqual(20);
+    });
   });
 });

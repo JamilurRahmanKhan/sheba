@@ -56,6 +56,8 @@ Demo officers created by `--demo`: `rafia@demo.local`, `tanvir@demo.local`, `mah
    | `SESSION_SECRET` | random, ≥ 32 chars (`openssl rand -base64 48`) |
    | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` | first admin (created on first login) |
    | `CRON_SECRET` | random; Vercel Cron sends it as a Bearer token |
+   | `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` | optional AI answers via any OpenAI-compatible gateway (e.g. `https://api.bazaarlink.ai/v1`, `deepseek-v4-flash`). Without them the keyword bot is used |
+   | `LLM_DAILY_LIMIT` | optional cost cap: max AI calls per day for the whole site (default 3000) |
    | `ALLOW_DEMO_RESET` | leave **unset** in production (it disables "reset to demo data") |
 
 4. **Deploy.** Open `/login`, sign in as the admin, then change the password under *Settings → সাধারণ*
@@ -81,6 +83,7 @@ that deletes finished conversations older than the retention period set in *Sett
   database on every request, so deactivating an account takes effect immediately. Roles: **admin**
   (everything) and **officer** (conversations, hand-offs, knowledge base). `proxy.ts` is only an optimistic
   redirect; every `/api/admin/*` route enforces authorisation itself.
+- **AI answers (optional):** a strong keyword match in the knowledge base is used verbatim (free, cannot hallucinate). Otherwise the model answers **only** from retrieved knowledge-base entries and must cite them; an answer that cites nothing valid, or "IDS: NONE", is discarded. Any AI error, timeout, empty credit balance or spent budget silently falls back to the keyword bot. Limits: 20 AI calls per conversation per hour and `LLM_DAILY_LIMIT` per day. Citizen text is masked (phone/NID/email) before it is stored or sent. Admins can switch it off in *Settings → বট*, and the KB "test the bot" box uses the same path.
 - **Abuse protection:** login, sending chat messages and escalating are rate-limited through MongoDB so the limits hold across all Vercel instances; accounts lock for 15 min after 5 failed logins. For heavy attacks add Vercel Firewall rules on top.
 - **Citizen privacy:** chats are anonymous. A random per-conversation secret (only its hash is stored)
   authorises the citizen's own polling/escalation/rating calls.

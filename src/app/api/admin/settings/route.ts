@@ -3,11 +3,12 @@ import { ApiError, body, route } from "@/server/http";
 import { requireUser } from "@/server/auth";
 import { getSettings, saveSettings } from "@/server/settings";
 import { audit } from "@/server/audit";
+import { llmConfigured } from "@/server/llm";
 import { mergeSettings, validateSettings } from "@/lib/settings";
 
 export const GET = route(async () => {
   await requireUser();
-  return { settings: await getSettings() };
+  return { settings: await getSettings(), aiConfigured: llmConfigured(), aiModel: llmConfigured() ? process.env.LLM_MODEL : null };
 });
 
 const schema = z.object({
@@ -15,7 +16,7 @@ const schema = z.object({
   slaMinutes: z.number(),
   hours: z.object({ enabled: z.boolean(), days: z.array(z.number().int().min(0).max(6)).max(7), start: z.string().max(5), end: z.string().max(5) }),
   handoff: z.object({ enabled: z.boolean(), offHoursMessage: z.string().max(1000) }),
-  bot: z.object({ greeting: z.string().max(1000), fallback: z.string().max(1000), maintenance: z.boolean(), maintenanceMessage: z.string().max(1000) }),
+  bot: z.object({ greeting: z.string().max(1000), fallback: z.string().max(1000), maintenance: z.boolean(), maintenanceMessage: z.string().max(1000), ai: z.boolean().optional() }),
   retentionDays: z.number(),
   replyTemplates: z.array(z.object({ id: z.string().max(40), title: z.string().max(60), text: z.string().max(1000) })).max(20),
 });

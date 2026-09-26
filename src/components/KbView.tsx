@@ -18,7 +18,7 @@ export function KbView() {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<KbItem | null>(null);
   const [testText, setTestText] = useState("");
-  const [testRes, setTestRes] = useState<{ source: "kb" | "topic" | "fallback"; answer: string; entry: { id: string; question: string } | null } | null>(null);
+  const [testRes, setTestRes] = useState<{ source: "kb" | "topic" | "fallback" | "ai"; answer: string; entry: { id: string; question: string } | null } | null>(null);
   const [testing, setTesting] = useState(false);
 
   const tabs: { id: CatFilter; label: string }[] = [{ id: "all", label: "সকল বিভাগ" }, ...FAQ_TOPICS.map((t) => ({ id: t.id, label: t.label }))];
@@ -106,8 +106,9 @@ export function KbView() {
         </form>
         {testRes && (
           <div className="preview" style={{ marginTop: 12 }} role="status">
-            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: testRes.source === "kb" ? "var(--success)" : testRes.source === "topic" ? "var(--warn)" : "var(--danger)" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: testRes.source === "kb" || testRes.source === "ai" ? "var(--success)" : testRes.source === "topic" ? "var(--warn)" : "var(--danger)" }}>
               {testRes.source === "kb" && `নলেজ বেসের এন্ট্রি থেকে: “${testRes.entry?.question}”`}
+              {testRes.source === "ai" && "AI নলেজ বেসের এন্ট্রি ভিত্তি করে উত্তরটি তৈরি করেছে"}
               {testRes.source === "topic" && "কোনো এন্ট্রি মেলেনি — বিষয়ের সাধারণ উত্তর দিত"}
               {testRes.source === "fallback" && "মিল পাওয়া যায়নি — বট “বুঝতে পারিনি” বলত। একটি এন্ট্রি বা বিকল্প প্রশ্ন যোগ করুন।"}
             </div>

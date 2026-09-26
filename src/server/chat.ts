@@ -2,7 +2,8 @@ import "server-only";
 import type { Filter } from "mongodb";
 import { col, nextSeq, type ConversationDoc, type EscalationDoc } from "./db";
 import { newChatToken, tokenMatches } from "./auth";
-import { answerQuestion, followupAnswer } from "./bot";
+import { followupAnswer } from "./bot";
+import { composeAnswer } from "./answer";
 import { getSettings } from "./settings";
 import { ApiError, badRequest, forbidden, notFound } from "./http";
 import { HANDOFF_OFFHOURS_TEXT, HANDOFF_TEXT, deriveOutcome, topicOfMessages, type Conversation, type LogMessage } from "@/lib/conversations";
@@ -117,12 +118,13 @@ export async function postUserMessage(input: {
       added.push(text ? { role: "bot", text, at: now() } : { role: "bot", text: settings.bot.fallback, at: now(), fallback: true });
     } else {
       const kb = await (await col.kb()).find({ active: true }).toArray();
-      const a = answerQuestion(input.text, kb.map((k) => ({ ...k, id: k._id })));
+      const history = doc.messages.filter((m) => (m.role === "user" || m.role === "bot") && !m.fallback).slice(-4).map((m) => ({ role: m.role === "user" ? ("user" as const) : ("assistant" as const), text: m.text }));
+      const a = await composeAnswer({ text: input.text, kb: kb.map((k) => ({ ...k, id: k._id })), history, aiEnabled: settings.bot.ai !== false, limitKey: `conv:${doc._id}` });
       if (a.fallback) {
         added.push({ role: "bot", text: settings.bot.fallback, at: now(), fallback: true });
       } else {
-        added.push({ role: "bot", text: a.text, at: now(), topic: a.topic ?? undefined, followups: a.followups });
-        if (a.kbId) await (await col.kb()).updateOne({ _id: a.kbId }, { $inc: { uses: 1 } });
+        added.push({ role: "bot", text: a.text, at: now(), topic: a.topic ?? undefined, followups: a.followups, ...(a.ai ? { ai: true } : {}) });
+        if (a.usedKbIds.length) await (await col.kb()).updateMany({ _id: { $in: a.usedKbIds } }, { $inc: { uses: 1 } });
       }
     }
   }

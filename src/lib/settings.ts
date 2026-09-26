@@ -41,7 +41,7 @@ export interface Settings {
     end: string;
   };
   handoff: { enabled: boolean; offHoursMessage: string };
-  bot: { greeting: string; fallback: string; maintenance: boolean; maintenanceMessage: string };
+  bot: { greeting: string; fallback: string; maintenance: boolean; maintenanceMessage: string; /** let the AI model compose answers from the knowledge base */ ai: boolean };
   /** delete finished conversations older than this many days; 0 = keep forever */
   retentionDays: number;
   /** saved replies officers can insert into a hand-off reply */
@@ -67,6 +67,7 @@ export const DEFAULT_SETTINGS: Settings = {
   bot: {
     greeting: GREETING,
     fallback: FALLBACK,
+    ai: true,
     maintenance: false,
     maintenanceMessage: "সেবা সহায়ক AI এখন রক্ষণাবেক্ষণের কাজে আছে। অনুগ্রহ করে কিছুক্ষণ পরে আবার চেষ্টা করুন অথবা মানব প্রতিনিধির সাথে কথা বলুন।",
   },

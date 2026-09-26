@@ -10,6 +10,8 @@ export interface LogMessage {
   at: string;
   /** name of the human representative (role "agent") */
   agent?: string;
+  /** the answer was written by the AI model from the knowledge base */
+  ai?: boolean;
   /** system notice added from the admin side (agent joined, case resolved) */
   admin?: boolean;
   /** bot could not match the question to any topic */

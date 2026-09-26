@@ -44,6 +44,8 @@ export function SettingsView() {
   const { user } = useApp();
   const isAdmin = user?.role === "admin";
   const { data, mutate } = useSettings();
+  const aiConfigured = !!data?.aiConfigured;
+  const aiModel = data?.aiModel ?? null;
   const [tab, setTab] = useState<TabId>("general");
   const [notice, setNotice] = useState<Notice>(null);
   // Bumped when stored data is replaced wholesale (restore / reset) so the draft restarts from it.
@@ -66,6 +68,8 @@ export function SettingsView() {
       key={epoch}
       saved={data.settings}
       isAdmin={isAdmin}
+      aiConfigured={aiConfigured}
+      aiModel={aiModel}
       tab={isAdmin ? tab : "general"}
       setTab={setTab}
       notice={notice}
@@ -110,6 +114,8 @@ function Field({ label, hint, error, children }: { label: string; hint?: string;
 function SettingsForm({
   saved,
   isAdmin,
+  aiConfigured,
+  aiModel,
   tab,
   setTab,
   notice,
@@ -119,6 +125,8 @@ function SettingsForm({
 }: {
   saved: Settings;
   isAdmin: boolean;
+  aiConfigured: boolean;
+  aiModel: string | null;
   tab: TabId;
   setTab: (t: TabId) => void;
   notice: Notice;
@@ -334,6 +342,22 @@ function SettingsForm({
 
         {tab === "bot" && (
           <>
+            <section className="card card-pad">
+              <h2 className="card-title">AI-চালিত উত্তর</h2>
+              <div className="stack">
+                <Toggle checked={draft.bot.ai} onChange={(v) => patch("bot", { ...draft.bot, ai: v })} label="নলেজ বেসের ভিত্তিতে AI দিয়ে উত্তর তৈরি করুন" />
+                <p className="hint">
+                  স্পষ্ট মিল থাকলে বট নলেজ বেসের উত্তরই হুবহু দেয়। মিল না পেলে AI শুধু নলেজ বেসের এন্ট্রি থেকে উত্তর সাজায়; নিশ্চিত না হলে “বুঝতে পারিনি” বলে। AI ব্যর্থ হলে বা সীমা শেষ হলে সাধারণ বট চলতে থাকে।{" "}
+                  <strong>গোপনীয়তা:</strong> AI ব্যবহার করলে নাগরিকের প্রশ্ন (ফোন/NID/ইমেইল মুছে ফেলার পর) বাইরের AI সেবাদাতার কাছে পাঠানো হয়।
+                </p>
+                <div className="hint">
+                  অবস্থা:{" "}
+                  <span className="badge" style={{ background: aiConfigured ? "var(--success-soft)" : "var(--warn-soft)", color: aiConfigured ? "var(--success)" : "var(--warn)" }}>
+                    {aiConfigured ? `সংযুক্ত (${aiModel})` : "AI কী সেট করা নেই — সাধারণ বট চলছে"}
+                  </span>
+                </div>
+              </div>
+            </section>
             <section className="card card-pad">
               <h2 className="card-title">বটের বার্তা</h2>
               <div className="stack">

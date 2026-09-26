@@ -21,6 +21,6 @@ export async function listAudit(p: z.infer<typeof auditQuery>, pageSize = 25) {
   if (p.action !== "all") filter.action = p.action.endsWith(".*") ? { $regex: `^${esc(p.action.slice(0, -2))}\\.` } : p.action;
   if (p.q.trim()) filter.$or = [{ actorName: { $regex: esc(p.q.trim()), $options: "i" } }, { detail: { $regex: esc(p.q.trim()), $options: "i" } }];
   const total = await audits.countDocuments(filter);
-  const items = await audits.find(filter, { projection: { expireAt: 0 } }).sort({ at: -1 }).skip(p.page * pageSize).limit(pageSize).toArray();
+  const items = await audits.find(filter, { projection: { expireAt: 0 } }).sort({ at: -1, _id: -1 }).skip(p.page * pageSize).limit(pageSize).toArray();
   return { total, pageSize, items: items.map(({ _id, ...r }) => ({ id: String(_id), ...r })) };
 }

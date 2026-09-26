@@ -26,7 +26,7 @@ export function Transcript({ messages, maxHeight }: { messages: LogMessage[]; ma
               <div className={`bubble ${m.role}`}>{m.text}</div>
               <div className="tmsg-time" style={m.fallback ? { color: "var(--danger)" } : undefined}>
                 {fmtTime(m.at)}
-                {m.fallback ? " · বট উত্তর দিতে পারেনি" : ""}
+                {m.fallback ? " · বট উত্তর দিতে পারেনি" : ""}{m.ai ? " · AI দিয়ে তৈরি" : ""}
               </div>
             </div>
           </div>

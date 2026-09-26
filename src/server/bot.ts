@@ -10,7 +10,7 @@ export interface BotAnswer {
   /** the bot could not answer */
   fallback?: boolean;
   /** where the answer came from */
-  source: "kb" | "topic" | "fallback";
+  source: "kb" | "topic" | "fallback" | "ai";
   score?: number;
 }
 

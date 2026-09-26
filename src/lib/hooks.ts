@@ -20,7 +20,7 @@ export interface PublicConfig {
 export const usePublicConfig = () => useSWR<PublicConfig>("/api/public/config", fetcher, { refreshInterval: 60_000, revalidateOnFocus: true });
 
 /** Admin-side settings (requires a session). Pass `enabled=false` to skip. */
-export const useSettings = (enabled = true) => useSWR<{ settings: Settings }>(enabled ? "/api/admin/settings" : null, fetcher, { revalidateOnFocus: true });
+export const useSettings = (enabled = true) => useSWR<{ settings: Settings; aiConfigured?: boolean; aiModel?: string | null }>(enabled ? "/api/admin/settings" : null, fetcher, { revalidateOnFocus: true });
 
 export const useTeam = () => useSWR<{ team: TeamMember[] }>("/api/admin/team", fetcher);
 
