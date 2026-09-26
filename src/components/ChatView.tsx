@@ -241,6 +241,24 @@ export function ChatView() {
     }
   };
 
+  const TopicChips = ({ retry }: { retry?: boolean }) =>
+    (config?.topics?.length ?? 0) > 0 ? (
+      <>
+        <div className="msg" style={{ justifyContent: "center" }}>
+          <div className="bubble system">
+            {retry ? "এই বিষয়গুলোর যেকোনো একটি বেছে নিন" : "আমি শুধু সরকারি সেবা সংক্রান্ত প্রশ্নের উত্তর দিতে পারি — নিচের যেকোনো বিষয় বেছে নিন"}
+          </div>
+        </div>
+        <div className="chipsrow">
+          {config!.topics.map((topic) => (
+            <button key={topic.id} type="button" className="chip" onClick={() => send(topic.sample)}>
+              {topic.label}
+            </button>
+          ))}
+        </div>
+      </>
+    ) : null;
+
   const answeredByBot = visible.some((m) => m.role === "bot" && !m.fallback);
   const openCase = escStatus === "new" || escStatus === "ongoing";
   const sla = config?.slaMinutes ?? 15;
@@ -289,6 +307,7 @@ export function ChatView() {
                 </div>
               </div>
               {greeting && <Bubble role="bot" text={greeting} />}
+              {visible.length === 0 && !pending && <TopicChips />}
               {visible.map((m) => {
                 if (m.role === "system") {
                   return (
@@ -312,6 +331,7 @@ export function ChatView() {
                 return (
                   <div key={m.idx} style={{ display: "contents" }}>
                     <Bubble role={m.role} text={m.text} />
+                    {last && m.role === "bot" && m.fallback && !openCase ? <TopicChips retry /> : null}
                     {last && m.role === "bot" && m.followups?.length ? (
                       <div className="chipsrow">
                         {m.followups.map((f) => (

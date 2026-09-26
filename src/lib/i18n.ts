@@ -11,7 +11,7 @@ const DICT = {
     bn: "উত্তরে সন্তুষ্ট নন? মানব প্রতিনিধির সাথে কথা বলুন",
     en: "Not satisfied? Talk to a human agent",
   },
-  "chat.placeholder": { bn: "আপনার প্রশ্ন লিখুন...", en: "Type your question..." },
+  "chat.placeholder": { bn: "যেমন: জন্ম নিবন্ধন সনদের ফি কত?", en: "e.g. How much is the birth certificate fee?" },
   "chat.new": { bn: "+ নতুন", en: "+ New" },
 } as const;
 
