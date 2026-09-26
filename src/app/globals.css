@@ -412,3 +412,14 @@
   .radio{width:24px; height:24px}
   .recent-btn{min-height:44px; display:flex; flex-direction:column; justify-content:center}
 }
+
+.tpl{display:grid; grid-template-columns:minmax(0,220px) minmax(0,1fr) auto; gap:10px; align-items:start}
+@media (max-width:760px){ .tpl{grid-template-columns:1fr} }
+.side-badge{margin-inline-start:auto; min-width:22px; padding:1px 7px; border-radius:999px; background:#E4746A; color:#fff; font-size:11px; font-weight:700; text-align:center}
+.side-tools{margin-top:auto; display:flex; flex-direction:column; gap:8px; padding-top:16px}
+.side-tool{all:unset; cursor:pointer; box-sizing:border-box; font-size:12px; font-weight:600; padding:8px 10px; border:1px solid #2C4A3E; border-radius:8px; color:var(--sidebar-text); min-height:36px; display:flex; align-items:center}
+.side-tool:hover{background:var(--sidebar-active)}
+.side-tool:focus-visible{outline:2px solid var(--sidebar-dim); outline-offset:1px}
+.toast{position:fixed; right:16px; bottom:16px; z-index:60; max-width:340px; background:var(--surface); color:var(--text); border:1px solid var(--warn); border-radius:12px; padding:12px 14px; box-shadow:0 8px 30px rgba(0,0,0,.3); font-size:13px; line-height:1.6}
+.toast a{font-weight:700; color:var(--accent)}
+@media (max-width:760px){ .side-tools{flex-direction:row; padding-top:0; margin-top:0; margin-inline-start:8px} .side-tool{white-space:nowrap} }

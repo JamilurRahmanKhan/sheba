@@ -1,7 +1,9 @@
 import type { Conversation } from "./conversations";
 import { bn, fmtClock } from "./conversations";
 import type { EscActivity, Escalation, Priority, SeedEscalation } from "./data";
-import { DEMO_OFFICERS } from "./settings";
+import { DEMO_OFFICERS, workingMinutesBetween, type Settings } from "./settings";
+
+type Hours = Settings["hours"];
 
 const AGENTS = DEMO_OFFICERS.map((m) => m.name);
 
@@ -108,21 +110,23 @@ export function fmtMinutes(total: number): string {
   return rh ? `${bn(d)} দিন ${bn(rh)} ঘণ্টা` : `${bn(d)} দিন`;
 }
 
-/** Minutes a "new" case has been waiting for an officer. */
-export const waitingMinutes = (e: Escalation, now: number) => minutesBetween(e.createdAt, now);
-export const isOverdue = (e: Escalation, now: number, slaMinutes: number) => e.status === "new" && waitingMinutes(e, now) > slaMinutes;
+const span = (fromIso: string, to: number | string, hours?: Hours) =>
+  hours ? workingMinutesBetween(new Date(fromIso).getTime(), new Date(to).getTime(), hours) : minutesBetween(fromIso, to);
+
+/** Minutes a "new" case has been waiting for an officer — counted only inside working hours when `hours` is given. */
+export const waitingMinutes = (e: Escalation, now: number, hours?: Hours) => span(e.createdAt, now, hours);
+export const isOverdue = (e: Escalation, now: number, slaMinutes: number, hours?: Hours) => e.status === "new" && waitingMinutes(e, now, hours) > slaMinutes;
 
 /** Time column: waiting (new) / running (ongoing) / total handling time (resolved). */
-export function timingLabel(e: Escalation, now: number): { prefix: string; text: string } {
-  if (e.status === "new") return { prefix: "অপেক্ষা", text: fmtMinutes(waitingMinutes(e, now)) };
-  if (e.status === "ongoing") return { prefix: "চলছে", text: fmtMinutes(minutesBetween(e.acceptedAt ?? e.createdAt, now)) };
-  return { prefix: "সমাধানে", text: fmtMinutes(minutesBetween(e.createdAt, e.resolvedAt ?? now)) };
+export function timingLabel(e: Escalation, now: number, hours?: Hours): { prefix: string; text: string } {
+  const bh = hours?.enabled ? " (অফিস সময়ে)" : "";
+  if (e.status === "new") return { prefix: `অপেক্ষা${bh}`, text: fmtMinutes(span(e.createdAt, now, hours)) };
+  if (e.status === "ongoing") return { prefix: `চলছে${bh}`, text: fmtMinutes(span(e.acceptedAt ?? e.createdAt, now, hours)) };
+  return { prefix: `সমাধানে${bh}`, text: fmtMinutes(span(e.createdAt, e.resolvedAt ?? now, hours)) };
 }
 
-export const firstResponseMinutes = (e: Escalation): number | null =>
-  e.acceptedAt ? minutesBetween(e.createdAt, e.acceptedAt) : null;
-export const resolutionMinutes = (e: Escalation): number | null =>
-  e.resolvedAt ? minutesBetween(e.createdAt, e.resolvedAt) : null;
+export const firstResponseMinutes = (e: Escalation, hours?: Hours): number | null => (e.acceptedAt ? span(e.createdAt, e.acceptedAt, hours) : null);
+export const resolutionMinutes = (e: Escalation, hours?: Hours): number | null => (e.resolvedAt ? span(e.createdAt, e.resolvedAt, hours) : null);
 
 export function average(values: (number | null)[]): number | null {
   const v = values.filter((x): x is number => x !== null);

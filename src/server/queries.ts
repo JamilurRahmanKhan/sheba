@@ -145,10 +145,10 @@ export async function listEscalations(p: EscalationQuery, meName: string) {
   const nowMs = Date.now();
   const stats = {
     counts: { new: 0, ongoing: 0, resolved: 0 } as Record<EscStatus, number>,
-    overdue: all.filter((e) => isOverdue(e, nowMs, settings.slaMinutes)).length,
+    overdue: all.filter((e) => isOverdue(e, nowMs, settings.slaMinutes, settings.hours)).length,
     urgentOpen: all.filter((e) => e.priority === "urgent" && e.status !== "resolved").length,
-    avgResponse: average(all.map(firstResponseMinutes)),
-    avgResolution: average(all.map(resolutionMinutes)),
+    avgResponse: average(all.map((e) => firstResponseMinutes(e, settings.hours))),
+    avgResolution: average(all.map((e) => resolutionMinutes(e, settings.hours))),
   };
   all.forEach((e) => (stats.counts[e.status] += 1));
 
@@ -173,6 +173,7 @@ export async function listEscalations(p: EscalationQuery, meName: string) {
     stats,
     depts: (await escalations.distinct("dept")).sort((a, b) => a.localeCompare(b, "bn")),
     slaMinutes: settings.slaMinutes,
+    hours: settings.hours,
   };
 }
 

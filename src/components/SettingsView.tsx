@@ -29,6 +29,7 @@ const TAB_OF_ERROR: Record<keyof SettingsErrors, TabId> = {
   fallback: "bot",
   maintenanceMessage: "bot",
   retentionDays: "data",
+  templates: "handoff",
 };
 
 const SHORT_DAYS = ["রবি", "সোম", "মঙ্গল", "বুধ", "বৃহ", "শুক্র", "শনি"];
@@ -291,6 +292,34 @@ function SettingsForm({
               </div>
             </section>
           </>
+        )}
+
+        {tab === "handoff" && (
+          <section className="card card-pad">
+            <h2 className="card-title">সংরক্ষিত উত্তর (টেমপ্লেট)</h2>
+            <p className="hint" style={{ marginBottom: 12 }}>হস্তান্তরের উত্তর লেখার সময় অফিসাররা এগুলো এক ক্লিকে ঢুকিয়ে নিতে পারেন। পাঠানোর আগে তাঁরা লেখা পরিবর্তনও করতে পারেন।</p>
+            <div className="stack">
+              {draft.replyTemplates.map((tpl, i) => (
+                <div key={tpl.id} className="tpl">
+                  <input type="text" className="input" value={tpl.title} maxLength={60} placeholder="শিরোনাম" aria-label={`টেমপ্লেট ${bn(i + 1)} শিরোনাম`} onChange={(e) => patch("replyTemplates", draft.replyTemplates.map((x) => (x.id === tpl.id ? { ...x, title: e.target.value } : x)))} />
+                  <textarea className="input" rows={2} value={tpl.text} maxLength={1000} placeholder="উত্তরের লেখা" aria-label={`টেমপ্লেট ${bn(i + 1)} লেখা`} onChange={(e) => patch("replyTemplates", draft.replyTemplates.map((x) => (x.id === tpl.id ? { ...x, text: e.target.value } : x)))} />
+                  <button type="button" className="btn-link" style={{ color: "var(--danger)" }} onClick={() => patch("replyTemplates", draft.replyTemplates.filter((x) => x.id !== tpl.id))}>
+                    মুছুন
+                  </button>
+                </div>
+              ))}
+              {errors.templates && (
+                <div className="field-error" role="alert">
+                  {errors.templates}
+                </div>
+              )}
+              <div>
+                <button type="button" className="btn btn-outline" disabled={draft.replyTemplates.length >= 20} onClick={() => patch("replyTemplates", [...draft.replyTemplates, { id: `t${Date.now()}`, title: "", text: "" }])}>
+                  + নতুন টেমপ্লেট
+                </button>
+              </div>
+            </div>
+          </section>
         )}
 
         {tab === "bot" && (

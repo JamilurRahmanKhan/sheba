@@ -9,7 +9,8 @@ import { Modal } from "./Modal";
 import { KbFormModal } from "./KbFormModal";
 import { Transcript } from "./Transcript";
 import { api, download, errorMessage, fetcher, qs } from "@/lib/api";
-import { useTeam } from "@/lib/hooks";
+import { useSettings, useTeam } from "@/lib/hooks";
+import type { Settings } from "@/lib/settings";
 import { STATUS_META, type EscStatus, type Escalation, type KbInput, type Priority } from "@/lib/data";
 import { bn, fmtDateTime, type Conversation } from "@/lib/conversations";
 import { PRIORITY_META, fmtMinutes, isOverdue, timingLabel } from "@/lib/escalations";
@@ -36,6 +37,7 @@ interface ListResponse {
   stats: { counts: Record<EscStatus, number>; overdue: number; urgentOpen: number; avgResponse: number | null; avgResolution: number | null };
   depts: string[];
   slaMinutes: number;
+  hours: Settings["hours"];
 }
 interface DetailResponse {
   escalation: Escalation;
@@ -96,6 +98,7 @@ export function EscalationsView() {
   const { data: detail, mutate: mutateDetail } = useSWR<DetailResponse>(detailKey, fetcher, { refreshInterval: 4_000 });
 
   const sla = data?.slaMinutes ?? 15;
+  const hours = data?.hours;
   const stats = data?.stats;
   const rows = data?.items ?? [];
   const total = data?.total ?? 0;
@@ -238,8 +241,8 @@ export function EscalationsView() {
               {rows.map((e) => {
                 const meta = STATUS_META[e.status];
                 const pr = PRIORITY_META[e.priority];
-                const timing = timingLabel(e, now);
-                const overdue = isOverdue(e, now, sla);
+                const timing = timingLabel(e, now, hours);
+                const overdue = isOverdue(e, now, sla, hours);
                 return (
                   <tr key={e.id}>
                     <td style={{ whiteSpace: "nowrap" }}>
@@ -335,6 +338,7 @@ export function EscalationsView() {
             conv={detail.conversation ?? undefined}
             now={now}
             sla={sla}
+            hours={hours}
             team={team}
             onAct={(body) => act(detail.escalation.id, body)}
             onAddKb={() => {
@@ -364,6 +368,7 @@ function EscalationDetail({
   conv,
   now,
   sla,
+  hours,
   team,
   onAct,
   onAddKb,
@@ -373,6 +378,7 @@ function EscalationDetail({
   conv: Conversation | undefined;
   now: number;
   sla: number;
+  hours?: Settings["hours"];
   team: { id: string; name: string; active: boolean }[];
   onAct: (body: Action) => Promise<boolean>;
   onAddKb: () => void;
@@ -383,8 +389,10 @@ function EscalationDetail({
   const [resolution, setResolution] = useState(esc.resolution);
 
   const meta = STATUS_META[esc.status];
-  const timing = timingLabel(esc, now);
-  const overdue = isOverdue(esc, now, sla);
+  const timing = timingLabel(esc, now, hours);
+  const overdue = isOverdue(esc, now, sla, hours);
+  const { data: cfg } = useSettings();
+  const templates = cfg?.settings.replyTemplates ?? [];
   
   return (
     <>
@@ -471,7 +479,19 @@ function EscalationDetail({
                 if (await onAct({ action: "reply", text: reply })) setReply("");
               }}
             >
-              <textarea className="input" rows={2} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="আপনার উত্তর লিখুন — নাগরিকের চ্যাটে সঙ্গে সঙ্গে দেখা যাবে..." aria-label="নাগরিককে উত্তর" />
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+              {templates.length > 0 && (
+                <select className="input" value="" aria-label="সংরক্ষিত উত্তর" onChange={(e) => { const t = templates.find((x) => x.id === e.target.value); if (t) setReply((cur) => (cur.trim() ? `${cur}\n${t.text}` : t.text)); }}>
+                  <option value="">সংরক্ষিত উত্তর ঢোকান…</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <textarea className="input" rows={3} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="আপনার উত্তর লিখুন — নাগরিকের চ্যাটে সঙ্গে সঙ্গে দেখা যাবে..." aria-label="নাগরিককে উত্তর" />
+              </div>
               <button type="submit" className="btn btn-solid" disabled={!reply.trim()}>
                 পাঠান
               </button>

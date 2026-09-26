@@ -16,6 +16,7 @@ const schema = z.object({
   handoff: z.object({ enabled: z.boolean(), offHoursMessage: z.string().max(1000) }),
   bot: z.object({ greeting: z.string().max(1000), fallback: z.string().max(1000), maintenance: z.boolean(), maintenanceMessage: z.string().max(1000) }),
   retentionDays: z.number(),
+  replyTemplates: z.array(z.object({ id: z.string().max(40), title: z.string().max(60), text: z.string().max(1000) })).max(20),
 });
 
 export const PUT = route(async (req) => {
