@@ -119,7 +119,7 @@ export async function postUserMessage(input: {
     } else {
       const kb = await (await col.kb()).find({ active: true }).toArray();
       const history = doc.messages.filter((m) => (m.role === "user" || m.role === "bot") && !m.fallback).slice(-4).map((m) => ({ role: m.role === "user" ? ("user" as const) : ("assistant" as const), text: m.text }));
-      const a = await composeAnswer({ text: input.text, kb: kb.map((k) => ({ ...k, id: k._id })), history, aiEnabled: settings.bot.ai !== false, limitKey: `conv:${doc._id}` });
+      const a = await composeAnswer({ text: input.text, kb: kb.map((k) => ({ ...k, id: k._id })), history, aiEnabled: settings.bot.ai !== false, limitKey: `conv:${doc._id}`, contextTopic: topicOfMessages([...doc.messages].reverse()) });
       if (a.fallback) {
         added.push({ role: "bot", text: settings.bot.fallback, at: now(), fallback: true });
       } else {

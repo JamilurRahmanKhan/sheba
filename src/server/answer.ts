@@ -20,8 +20,8 @@ const STRONG = 0.8;
  *  2. otherwise, if AI is on and configured -> the model answers ONLY from retrieved KB entries (or declines)
  *  3. otherwise (or on any AI failure) -> topic answer / "I didn't understand"
  */
-export async function composeAnswer(input: { text: string; kb: KbItem[]; history: { role: "user" | "assistant"; text: string }[]; aiEnabled: boolean; limitKey: string }): Promise<Composed> {
-  const base = answerQuestion(input.text, input.kb);
+export async function composeAnswer(input: { text: string; kb: KbItem[]; history: { role: "user" | "assistant"; text: string }[]; aiEnabled: boolean; limitKey: string; contextTopic?: TopicId | null }): Promise<Composed> {
+  const base = answerQuestion(input.text, input.kb, input.contextTopic ?? null);
   const strong = base.source === "kb" && (base.score ?? 0) >= STRONG;
   if (strong || !input.aiEnabled || !llmConfigured() || input.kb.length === 0) return { ...base, usedKbIds: base.kbId ? [base.kbId] : [] };
 

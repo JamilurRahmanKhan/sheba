@@ -2,6 +2,9 @@ import { z } from "zod";
 import { body, clientIp, rateLimitShared, route } from "@/server/http";
 import { postUserMessage } from "@/server/chat";
 
+/** The AI step may retry once; give the function room on Vercel. */
+export const maxDuration = 30;
+
 const schema = z.object({
   conversationId: z.string().max(40).optional(),
   token: z.string().max(80).optional(),

@@ -86,18 +86,32 @@ export function parseReply(raw: string, allowedIds: string[]): LlmResult | null 
 export async function askLlm(input: { question: string; history: { role: "user" | "assistant"; text: string }[]; entries: LlmEntry[] }, fetchImpl: typeof fetch = fetch): Promise<LlmResult | null> {
   if (!llmConfigured() || input.entries.length === 0) return null;
   try {
-    const res = await fetchImpl(`${process.env.LLM_BASE_URL!.replace(/\/$/, "")}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.LLM_API_KEY}` },
-      body: JSON.stringify({ model: process.env.LLM_MODEL, messages: buildMessages(input), temperature: 0.2, max_tokens: 600 }),
-      signal: AbortSignal.timeout(9000),
-    });
-    if (!res.ok) {
-      console.error("[llm] HTTP", res.status); // status only — never the key or the citizen's text
-      return null;
+    // Shared/free endpoints answer 429 or 5xx when busy: retry once, then the optional fallback model.
+    const models = [process.env.LLM_MODEL, process.env.LLM_FALLBACK_MODEL].filter((m): m is string => !!m);
+    const deadline = Date.now() + 14_000;
+    let content: string | undefined;
+    for (let attempt = 0; attempt < 3 && content === undefined; attempt++) {
+      const remaining = deadline - Date.now();
+      if (remaining < 1500) break;
+      const model = attempt === 1 && models[1] ? models[1] : models[0];
+      const res = await fetchImpl(`${process.env.LLM_BASE_URL!.replace(/\/$/, "")}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.LLM_API_KEY}` },
+        body: JSON.stringify({ model, messages: buildMessages(input), temperature: 0.2, max_tokens: 900 }),
+        signal: AbortSignal.timeout(Math.min(remaining, 9000)),
+      });
+      if (!res.ok) {
+        console.error("[llm] HTTP", res.status); // status only — never the key or the citizen's text
+        if ((res.status === 429 || res.status >= 500) && attempt < 2) {
+          await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
+          continue;
+        }
+        return null;
+      }
+      const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+      content = data.choices?.[0]?.message?.content ?? "";
+      break;
     }
-    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const content = data.choices?.[0]?.message?.content;
     return content ? parseReply(content, input.entries.map((e) => e.id)) : null;
   } catch (err) {
     console.error("[llm] request failed:", err instanceof Error ? err.name : "error");

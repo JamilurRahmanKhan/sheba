@@ -49,14 +49,28 @@ export function scoreItem(queryTokens: string[], item: KbItem): { score: number;
   return best;
 }
 
+/** What the citizen is asking *about* a service (Bengali, English and romanised Bengali wording). */
+const INTENTS = {
+  fee: { words: /ফি|খরচ|টাকা|মূল্য|\b(fee|fees|cost|price|charge|taka|tk|koto taka|fi)\b/i, label: /ফি/ },
+  time: { words: /কতদিন|কত দিন|কয়দিন|কতক্ষণ|মেয়াদ|\b(how long|days|duration|validity|koto din|kotodin|kotodin lage)\b/i, label: /কতদিন|মেয়াদ|সময়/ },
+  docs: { words: /কাগজ|ডকুমেন্ট|প্রয়োজনীয়|\b(documents?|papers?|required|requirements?|kagoj|kagojpotro)\b/i, label: /কাগজ/ },
+} as const;
+
+function detectIntent(text: string): keyof typeof INTENTS | null {
+  for (const k of Object.keys(INTENTS) as (keyof typeof INTENTS)[]) if (INTENTS[k].words.test(text)) return k;
+  return null;
+}
+
 /**
  * Answer a question from the *active* knowledge base.
  * 1) keyword → topic; within that topic prefer the best-matching KB entry, else the topic's standard answer.
  * 2) no topic → best KB entry across all topics (so admin-added entries on new subjects work).
  */
-export function answerQuestion(text: string, activeKb: KbItem[]): BotAnswer {
+export function answerQuestion(text: string, activeKb: KbItem[], contextTopic: TopicId | null = null): BotAnswer {
   const q = tokenize(text);
-  const topic = matchTopic(text);
+  const intent = detectIntent(text);
+  // "fee koto?" with no subject: assume the topic the citizen was just talking about
+  const topic = matchTopic(text) ?? (intent && contextTopic ? (FAQ_TOPICS.find((t) => t.id === contextTopic) ?? null) : null);
   const followupsOf = (id: TopicId | null) => (id ? (FAQ_TOPICS.find((t) => t.id === id)?.followups ?? []) : []);
 
   const pool = topic ? activeKb.filter((k) => k.category === topic.id) : activeKb;
@@ -68,6 +82,8 @@ export function answerQuestion(text: string, activeKb: KbItem[]): BotAnswer {
 
   if (topic) {
     if (best && best.score >= 0.5) return { text: best.item.answer, topic: topic.id, followups: followupsOf(topic.id), kbId: best.item.id, source: "kb", score: best.score };
+    const fu = intent ? topic.followups.find((f) => INTENTS[intent].label.test(f.label)) : undefined;
+    if (fu) return { text: fu.answer, topic: topic.id, followups: topic.followups, source: "topic" };
     return { text: topic.answer, topic: topic.id, followups: topic.followups, source: "topic" };
   }
   if (best && best.score >= 0.5) return { text: best.item.answer, topic: best.item.category, followups: followupsOf(best.item.category), kbId: best.item.id, source: "kb", score: best.score };

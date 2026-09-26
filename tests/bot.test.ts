@@ -65,3 +65,19 @@ describe("answerQuestion", () => {
     expect(answerQuestion("পাসপোর্টের ফি", []).source).toBe("topic");
   });
 });
+
+describe("intent handling", () => {
+  it("answers 'passport fee' style questions with the fee answer, incl. romanised Bengali", () => {
+    const a = answerQuestion("passport banate koto taka lagbe", []);
+    expect(a.topic).toBe("passport");
+    expect(a.text).toContain("ফি");
+  });
+  it("uses the previous topic for a subject-less follow-up like 'fee koto'", () => {
+    const a = answerQuestion("fee koto", [], "nid");
+    expect(a.topic).toBe("nid");
+    expect(a.fallback).toBeFalsy();
+  });
+  it("still falls back when there is no topic and no context", () => {
+    expect(answerQuestion("fee koto", []).fallback).toBe(true);
+  });
+});
