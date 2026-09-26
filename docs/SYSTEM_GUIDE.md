@@ -202,7 +202,7 @@ Browser ──► Next.js 16 (App Router) on Vercel ──► MongoDB Atlas
 
 - Citizens are anonymous. Each conversation has a random secret (only its hash is stored) that authorises that citizen's own polling, hand-off and rating requests.
 - Phone numbers, NID numbers and email addresses are masked before storage and before any AI call.
-- Login, chat, hand-off and rating calls are rate-limited across all serverless instances; login lockout after 5 failures.
+- Login, chat messages, polling, hand-off requests and the knowledge-base test box are rate-limited across all serverless instances; login lockout after 5 failures.
 - Every `/api/admin/*` route enforces its own authorisation; the proxy redirect is only a convenience.
 - Security headers are set on all responses; backups exclude accounts and passwords.
 - Concurrency is safe: five simultaneous hand-off clicks create one case; two officers accepting the same case → one wins.
