@@ -2,7 +2,7 @@ import { route } from "@/server/http";
 import { requireUser } from "@/server/auth";
 import { col } from "@/server/db";
 import { getSettings } from "@/server/settings";
-import { countPurgeable } from "@/server/data";
+import { countPurgeable, resetAllowed } from "@/server/data";
 
 export const GET = route(async () => {
   await requireUser("admin");
@@ -12,5 +12,5 @@ export const GET = route(async () => {
     (await col.escalations()).estimatedDocumentCount(),
     (await col.kb()).estimatedDocumentCount(),
   ]);
-  return { conversations, escalations, kb, retentionDays: s.retentionDays, purgeable: await countPurgeable(s.retentionDays) };
+  return { conversations, escalations, kb, retentionDays: s.retentionDays, purgeable: await countPurgeable(s.retentionDays), resetAllowed: resetAllowed() };
 });

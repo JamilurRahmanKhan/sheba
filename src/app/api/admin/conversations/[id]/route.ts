@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ApiError, body, notFound, route } from "@/server/http";
 import { requireUser } from "@/server/auth";
+import { audit } from "@/server/audit";
 import { col } from "@/server/db";
 import { toConversation } from "@/server/chat";
 import { toEscalation } from "@/server/escalations";
@@ -25,7 +26,7 @@ export const PATCH = route<{ id: string }>(async (req, { params }) => {
 
 /** Erase one conversation (privacy request). Admin only; refused while its hand-off case is still open. */
 export const DELETE = route<{ id: string }>(async (_req, { params }) => {
-  await requireUser("admin");
+  const me = await requireUser("admin");
   const conversations = await col.conversations();
   const conv = await conversations.findOne({ _id: params.id }, { projection: { escalationId: 1 } });
   if (!conv) throw notFound("কথোপকথন পাওয়া যায়নি।");
@@ -35,5 +36,6 @@ export const DELETE = route<{ id: string }>(async (_req, { params }) => {
     await (await col.escalations()).updateOne({ _id: conv.escalationId }, { $unset: { conversationId: "" }, $push: { activity: { at: new Date().toISOString(), kind: "event", text: "কথোপকথনের প্রতিলিপি মুছে ফেলা হয়েছে" } } });
   }
   await conversations.deleteOne({ _id: params.id });
+  await audit(me, "conversation.delete", `${params.id} স্থায়ীভাবে মুছে ফেলা হয়েছে`);
   return { ok: true };
 });

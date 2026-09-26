@@ -6,10 +6,10 @@ import { useApp, type Theme } from "./AppProvider";
 import { Modal } from "./Modal";
 import { api, errorMessage, fetcher } from "@/lib/api";
 import { useSettings, useTeam } from "@/lib/hooks";
-import { bn } from "@/lib/conversations";
+import { bn, fmtDateTime } from "@/lib/conversations";
 import { DEFAULT_SETTINGS, WEEKDAYS, hoursSummary, validateSettings, withinWorkingHours, type Role, type Settings, type SettingsErrors } from "@/lib/settings";
 
-type TabId = "general" | "handoff" | "bot" | "team" | "data";
+type TabId = "general" | "handoff" | "bot" | "team" | "data" | "audit";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "general", label: "সাধারণ" },
@@ -17,6 +17,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "bot", label: "বট" },
   { id: "team", label: "টিম" },
   { id: "data", label: "ডেটা ও গোপনীয়তা" },
+  { id: "audit", label: "অডিট লগ" },
 ];
 
 const TAB_OF_ERROR: Record<keyof SettingsErrors, TabId> = {
@@ -370,6 +371,8 @@ function SettingsForm({
 
         {tab === "team" && <TeamPanel setNotice={setNotice} />}
 
+        {tab === "audit" && <AuditPanel />}
+
         {tab === "data" && (
           <>
             <section className="card card-pad">
@@ -446,11 +449,28 @@ function PasswordCard() {
             {msg.text}
           </div>
         )}
-        <div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button type="submit" className="btn btn-outline" disabled={busy || !current || !next}>
             পাসওয়ার্ড পরিবর্তন করুন
           </button>
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={async () => {
+              try {
+                await api("/api/auth/logout-all", { body: {} });
+                // Full navigation on purpose: the server layout must re-check the ended session.
+                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                window.location.assign("/login");
+              } catch (err) {
+                setMsg({ kind: "err", text: errorMessage(err) });
+              }
+            }}
+          >
+            সব ডিভাইস থেকে লগআউট
+          </button>
         </div>
+        <p className="hint">পাসওয়ার্ড পরিবর্তন করলে অন্য সব ডিভাইসে আপনি আপনাআপনি লগআউট হয়ে যান; এই ব্রাউজারে লগইন থাকে।</p>
       </form>
     </section>
   );
@@ -589,6 +609,7 @@ interface DataStats {
   kb: number;
   retentionDays: number;
   purgeable: number;
+  resetAllowed: boolean;
 }
 
 function RetentionBlock({ draftDays, savedDays, error, onChange, setNotice }: { draftDays: number; savedDays: number; error?: string; onChange: (n: number) => void; setNotice: (n: Notice) => void }) {
@@ -669,9 +690,13 @@ function DataPanel({ setNotice, onReplaced }: { setNotice: (n: Notice) => void; 
       <section className="card card-pad danger-zone">
         <h2 className="card-title">বিপজ্জনক এলাকা</h2>
         <p className="hint" style={{ marginBottom: 12 }}>সব কথোপকথন, হস্তান্তর, নলেজ বেস ও সেটিংস মুছে প্রাথমিক ডেমো ডেটায় ফিরে যাবে (সদস্যদের অ্যাকাউন্ট থাকবে)। আগে ব্যাকআপ নিয়ে রাখুন।</p>
-        <button type="button" className="btn btn-danger" onClick={() => setConfirmReset(true)}>
-          ডেমো ডেটায় রিসেট করুন
-        </button>
+        {stats?.resetAllowed === false ? (
+          <p className="hint">এই সার্ভারে ডেমো ডেটায় রিসেট বন্ধ করা আছে (প্রোডাকশন সুরক্ষা), যাতে বাস্তব তথ্য ভুলবশত মুছে না যায়।</p>
+        ) : (
+          <button type="button" className="btn btn-danger" onClick={() => setConfirmReset(true)}>
+            ডেমো ডেটায় রিসেট করুন
+          </button>
+        )}
       </section>
 
       <ConfirmModal
@@ -701,6 +726,7 @@ function DataPanel({ setNotice, onReplaced }: { setNotice: (n: Notice) => void; 
         title="সব তথ্য রিসেট করবেন?"
         body="বর্তমান সব কথোপকথন, হস্তান্তর, নলেজ বেস এন্ট্রি ও সেটিংস মুছে যাবে এবং ডেমো ডেটা ফিরে আসবে। এটি ফেরানো যাবে না।"
         confirmLabel="হ্যাঁ, রিসেট করুন"
+        confirmWord="রিসেট"
         onCancel={() => setConfirmReset(false)}
         onConfirm={async () => {
           setConfirmReset(false);
@@ -718,18 +744,130 @@ function DataPanel({ setNotice, onReplaced }: { setNotice: (n: Notice) => void; 
   );
 }
 
-function ConfirmModal({ open, title, body, confirmLabel, danger, onConfirm, onCancel }: { open: boolean; title: string; body: string; confirmLabel: string; danger?: boolean; onConfirm: () => void; onCancel: () => void }) {
+function ConfirmModal({ open, title, body, confirmLabel, danger, confirmWord, onConfirm, onCancel }: { open: boolean; title: string; body: string; confirmLabel: string; danger?: boolean; confirmWord?: string; onConfirm: () => void; onCancel: () => void }) {
+  const [typed, setTyped] = useState("");
   return (
     <Modal open={open} title={title} onClose={onCancel}>
       <p>{body}</p>
+      {confirmWord && (
+        <label className="field">
+          নিশ্চিত করতে নিচে “{confirmWord}” লিখুন
+          <input type="text" className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
+        </label>
+      )}
       <div className="modal-actions">
-        <button type="button" className="btn btn-outline" onClick={onCancel} data-autofocus>
+        <button type="button" className="btn btn-outline" onClick={() => { setTyped(""); onCancel(); }} data-autofocus>
           বাতিল
         </button>
-        <button type="button" className={danger ? "btn btn-danger" : "btn btn-solid"} onClick={onConfirm}>
+        <button type="button" className={danger ? "btn btn-danger" : "btn btn-solid"} disabled={!!confirmWord && typed.trim() !== confirmWord} onClick={() => { setTyped(""); onConfirm(); }}>
           {confirmLabel}
         </button>
       </div>
     </Modal>
+  );
+}
+
+/* ---------------- audit log (admin) ---------------- */
+
+interface AuditRow {
+  id: string;
+  at: string;
+  actorName: string;
+  action: string;
+  detail?: string;
+}
+
+const ACTION_LABEL: Record<string, string> = {
+  "auth.login": "লগইন",
+  "auth.login_locked": "লগইন লক",
+  "auth.password_change": "পাসওয়ার্ড পরিবর্তন",
+  "auth.logout_all": "সব ডিভাইস থেকে লগআউট",
+  "team.create": "সদস্য যোগ",
+  "team.update": "সদস্য পরিবর্তন",
+  "team.password_reset": "পাসওয়ার্ড রিসেট",
+  "settings.update": "সেটিংস পরিবর্তন",
+  "data.export": "ব্যাকআপ ডাউনলোড",
+  "data.import": "ব্যাকআপ পুনরুদ্ধার",
+  "data.reset": "ডেমো রিসেট",
+  "data.purge": "পুরনো চ্যাট মোছা",
+  "conversation.delete": "কথোপকথন মোছা",
+  "kb.create": "নলেজ বেস: যোগ",
+  "kb.update": "নলেজ বেস: পরিবর্তন",
+  "kb.delete": "নলেজ বেস: মোছা",
+};
+
+function AuditPanel() {
+  const [page, setPage] = useState(0);
+  const [action, setAction] = useState("all");
+  const [q, setQ] = useState("");
+  const { data } = useSWR<{ total: number; pageSize: number; items: AuditRow[] }>(`/api/admin/audit?page=${page}&action=${encodeURIComponent(action)}&q=${encodeURIComponent(q)}`, fetcher, { refreshInterval: 15_000, keepPreviousData: true });
+  const total = data?.total ?? 0;
+  const size = data?.pageSize ?? 25;
+  const pages = Math.max(1, Math.ceil(total / size));
+
+  return (
+    <section className="card">
+      <div className="card-pad" style={{ paddingBottom: 0 }}>
+        <h2 className="card-title">অডিট লগ</h2>
+        <p className="hint" style={{ marginBottom: 12 }}>কে কখন কী পরিবর্তন করেছেন তার স্থায়ী রেকর্ড (প্রায় ১৩ মাস রাখা হয়)। পাসওয়ার্ড বা গোপন তথ্য এখানে কখনো লেখা হয় না।</p>
+        <div className="toolbar" style={{ marginBottom: 12 }}>
+          <select className="input" value={action} onChange={(e) => { setAction(e.target.value); setPage(0); }} aria-label="কাজের ধরন">
+            <option value="all">সব কাজ</option>
+            <option value="auth.*">লগইন ও পাসওয়ার্ড</option>
+            <option value="team.*">টিম</option>
+            <option value="settings.update">সেটিংস</option>
+            <option value="data.*">ডেটা (ব্যাকআপ/রিসেট/মোছা)</option>
+            <option value="kb.*">নলেজ বেস</option>
+            <option value="conversation.delete">কথোপকথন মোছা</option>
+          </select>
+          <input type="search" className="input" style={{ width: 240 }} value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="নাম বা বিবরণ খুঁজুন..." aria-label="অডিট খুঁজুন" />
+        </div>
+      </div>
+      <div className="table-wrap">
+        <table className="compact-first" style={{ minWidth: 720 }}>
+          <thead>
+            <tr>
+              <th>সময়</th>
+              <th>কে</th>
+              <th>কাজ</th>
+              <th>বিবরণ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(data?.items ?? []).map((r) => (
+              <tr key={r.id}>
+                <td style={{ whiteSpace: "nowrap", color: "var(--text-2)" }}>{fmtDateTime(r.at)}</td>
+                <td style={{ fontWeight: 600 }}>{r.actorName}</td>
+                <td>
+                  <span className="badge" style={{ background: "var(--surface-2)", color: "var(--text)" }}>
+                    {ACTION_LABEL[r.action] ?? r.action}
+                  </span>
+                </td>
+                <td style={{ color: "var(--text-2)", maxWidth: 420 }}>{r.detail ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {data && total === 0 && <div className="empty">কোনো রেকর্ড পাওয়া যায়নি।</div>}
+      {total > 0 && (
+        <div className="pager">
+          <div style={{ color: "var(--text-2)" }}>
+            {bn(total)}টির মধ্যে {bn(page * size + 1)}–{bn(Math.min((page + 1) * size, total))}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button type="button" className="btn btn-outline" disabled={page === 0} onClick={() => setPage(page - 1)}>
+              ← আগের
+            </button>
+            <span style={{ fontSize: 12, color: "var(--text-2)" }}>
+              {bn(page + 1)} / {bn(pages)}
+            </span>
+            <button type="button" className="btn btn-outline" disabled={page >= pages - 1} onClick={() => setPage(page + 1)}>
+              পরের →
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

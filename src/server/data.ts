@@ -65,6 +65,9 @@ async function replaceAll(input: { conversations: Conversation[]; escalations: E
 
 /* ---------------- demo data ---------------- */
 
+/** Wiping everything back to demo data is only allowed outside production, unless ALLOW_DEMO_RESET=true is set on purpose. */
+export const resetAllowed = () => process.env.NODE_ENV !== "production" || process.env.ALLOW_DEMO_RESET === "true";
+
 export async function resetToDemo(): Promise<void> {
   const now = Date.now();
   const conversations = buildSeedConversations(now);

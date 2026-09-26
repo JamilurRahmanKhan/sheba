@@ -56,6 +56,7 @@ Demo officers created by `--demo`: `rafia@demo.local`, `tanvir@demo.local`, `mah
    | `SESSION_SECRET` | random, ≥ 32 chars (`openssl rand -base64 48`) |
    | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` | first admin (created on first login) |
    | `CRON_SECRET` | random; Vercel Cron sends it as a Bearer token |
+   | `ALLOW_DEMO_RESET` | leave **unset** in production (it disables "reset to demo data") |
 
 4. **Deploy.** Open `/login`, sign in as the admin, then change the password under *Settings → সাধারণ*
    and create officer accounts under *Settings → টিম*.

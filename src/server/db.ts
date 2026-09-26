@@ -36,11 +36,24 @@ export interface UserDoc {
   createdAt: string;
   failedLogins: number;
   lockUntil?: string;
+  /** bumped on password change / "sign out everywhere"; sessions carrying an older value are rejected */
+  tokenVersion?: number;
 }
 
 export interface RateLimitDoc {
   _id: string;
   n: number;
+  expireAt: Date;
+}
+
+export interface AuditDoc {
+  _id?: import("mongodb").ObjectId;
+  at: string;
+  actorId: string;
+  actorName: string;
+  action: string;
+  detail?: string;
+  /** TTL: audit rows are kept for ~13 months */
   expireAt: Date;
 }
 
@@ -88,6 +101,8 @@ async function ensureIndexes(db: Db) {
     db.collection("escalations").createIndex({ conversationId: 1 }, { sparse: true }),
     db.collection("kb").createIndex({ category: 1 }),
     db.collection("ratelimits").createIndex({ expireAt: 1 }, { expireAfterSeconds: 0 }),
+    db.collection("audit").createIndex({ expireAt: 1 }, { expireAfterSeconds: 0 }),
+    db.collection("audit").createIndex({ at: -1 }),
   ]);
 }
 
@@ -98,6 +113,7 @@ export const col = {
   kb: async (): Promise<Collection<KbDoc>> => (await getDb()).collection<KbDoc>("kb"),
   settings: async (): Promise<Collection<SettingsDoc>> => (await getDb()).collection<SettingsDoc>("settings"),
   counters: async (): Promise<Collection<CounterDoc>> => (await getDb()).collection<CounterDoc>("counters"),
+  audit: async (): Promise<Collection<AuditDoc>> => (await getDb()).collection<AuditDoc>("audit"),
   rateLimits: async (): Promise<Collection<RateLimitDoc>> => (await getDb()).collection<RateLimitDoc>("ratelimits"),
 };
 

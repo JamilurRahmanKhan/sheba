@@ -30,8 +30,8 @@ export function checkPasswordStrength(pw: string): string | null {
 
 /* ---------------- session cookie ---------------- */
 
-export async function createSession(user: Pick<UserDoc, "_id">): Promise<void> {
-  const token = await new SignJWT({}).setProtectedHeader({ alg: "HS256" }).setSubject(user._id).setIssuedAt().setExpirationTime(`${SESSION_DAYS}d`).sign(secret());
+export async function createSession(user: Pick<UserDoc, "_id" | "tokenVersion">): Promise<void> {
+  const token = await new SignJWT({ v: user.tokenVersion ?? 0 }).setProtectedHeader({ alg: "HS256" }).setSubject(user._id).setIssuedAt().setExpirationTime(`${SESSION_DAYS}d`).sign(secret());
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -55,7 +55,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     const { payload } = await jwtVerify(token, secret(), { algorithms: ["HS256"] });
     if (!payload.sub) return null;
     const user = await (await col.users()).findOne({ _id: payload.sub });
-    return user && user.active ? toSessionUser(user) : null;
+    if (!user || !user.active || (typeof payload.v === "number" ? payload.v : 0) !== (user.tokenVersion ?? 0)) return null;
+    return toSessionUser(user);
   } catch {
     return null;
   }

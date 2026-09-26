@@ -3,6 +3,7 @@ import { body, clientIp, rateLimitShared, route } from "@/server/http";
 import { col } from "@/server/db";
 import { createSession, ensureBootstrapAdmin, hashPassword, verifyPassword } from "@/server/auth";
 import { NextResponse } from "next/server";
+import { audit } from "@/server/audit";
 
 const schema = z.object({ email: z.string().trim().toLowerCase().email().max(200), password: z.string().min(1).max(200) });
 
@@ -31,14 +32,17 @@ export const POST = route(async (req) => {
     return NextResponse.json({ error: GENERIC }, { status: 401 });
   }
   if (user.lockUntil && new Date(user.lockUntil).getTime() > Date.now()) {
+    await audit({ id: user._id, name: user.name }, "auth.login_locked", "লক থাকা অ্যাকাউন্টে লগইনের চেষ্টা");
     return NextResponse.json({ error: "অনেকবার ভুল চেষ্টা হয়েছে। ১৫ মিনিট পরে আবার চেষ্টা করুন।" }, { status: 429 });
   }
   if (!(await verifyPassword(password, user.passwordHash))) {
     const fails = (user.failedLogins ?? 0) + 1;
     await users.updateOne({ _id: user._id }, fails >= MAX_FAILS ? { $set: { failedLogins: 0, lockUntil: new Date(Date.now() + LOCK_MS).toISOString() } } : { $set: { failedLogins: fails } });
+    if (fails >= MAX_FAILS) await audit({ id: user._id, name: user.name }, "auth.login_locked", `${MAX_FAILS}বার ভুল পাসওয়ার্ড — অ্যাকাউন্ট ১৫ মিনিটের জন্য লক`);
     return NextResponse.json({ error: GENERIC }, { status: 401 });
   }
   await users.updateOne({ _id: user._id }, { $set: { failedLogins: 0 }, $unset: { lockUntil: "" } });
   await createSession(user);
+  await audit({ id: user._id, name: user.name }, "auth.login");
   return { user: { id: user._id, name: user.name, email: user.email, role: user.role, title: user.title } };
 });

@@ -43,6 +43,7 @@ describe.skipIf(!up)("integration (MongoDB)", () => {
       db: await import("@/server/db"),
       data: await import("@/server/data"),
       http: await import("@/server/http"),
+      audit: await import("@/server/audit"),
     };
     // A small knowledge base + the users the assignment check needs
     await (await m.db.col.kb()).insertMany([
@@ -208,5 +209,20 @@ describe.skipIf(!up)("integration (MongoDB)", () => {
     const { escalationId } = await m.chat.escalateConversation(c.conversationId, c.token);
     const open = await (await m.db.col.escalations()).findOne({ _id: escalationId, status: { $ne: "resolved" } });
     expect(open).not.toBeNull(); // the DELETE route returns 409 in exactly this state
+  });
+
+  it("audit log records who did what, filters by action group and pages", async () => {
+    const actor = { id: "u-rafia", name: "rafia" };
+    for (let i = 0; i < 30; i++) await m.audit.audit(actor, i % 2 ? "kb.update" : "settings.update", `পরিবর্তন ${i}`);
+    await m.audit.audit({ id: "u-x", name: "tanvir" }, "auth.password_change", "পাসওয়ার্ড");
+    const p = (o: object) => m.audit.auditQuery.parse(o);
+    const all = await m.audit.listAudit(p({}));
+    expect(all.total).toBe(31);
+    expect(all.items).toHaveLength(25);
+    expect(all.items[0].action).toBe("auth.password_change"); // newest first
+    expect((await m.audit.listAudit(p({ page: 1 }))).items).toHaveLength(6);
+    expect((await m.audit.listAudit(p({ action: "kb.*" }))).total).toBe(15);
+    expect((await m.audit.listAudit(p({ q: "tanvir" }))).total).toBe(1);
+    expect(JSON.stringify(all.items)).not.toContain("expireAt");
   });
 });

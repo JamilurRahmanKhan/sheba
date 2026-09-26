@@ -2,6 +2,7 @@ import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import { ApiError, body, route } from "@/server/http";
 import { checkPasswordStrength, hashPassword, requireUser, toTeamMember } from "@/server/auth";
+import { audit } from "@/server/audit";
 import { col } from "@/server/db";
 
 /** Everyone signed in can see the team (needed to assign cases); only admins can change it. */
@@ -20,7 +21,7 @@ const schema = z.object({
 });
 
 export const POST = route(async (req) => {
-  await requireUser("admin");
+  const me = await requireUser("admin");
   const input = await body(req, schema);
   const weak = checkPasswordStrength(input.password);
   if (weak) throw new ApiError(400, weak);
@@ -28,5 +29,6 @@ export const POST = route(async (req) => {
   if (await users.findOne({ $or: [{ email: input.email }, { name: input.name }] }, { projection: { _id: 1 } })) throw new ApiError(409, "এই নাম বা ইমেইল দিয়ে আগে থেকেই একজন সদস্য আছেন।");
   const doc = { _id: `u-${randomBytes(6).toString("hex")}`, email: input.email, name: input.name, role: input.role, title: input.title, active: true, passwordHash: await hashPassword(input.password), createdAt: new Date().toISOString(), failedLogins: 0 };
   await users.insertOne(doc);
+  await audit(me, "team.create", `${doc.name} (${doc.email}) — ${doc.role === "admin" ? "অ্যাডমিন" : "অফিসার"} হিসেবে যোগ`);
   return { member: toTeamMember(doc) };
 });
