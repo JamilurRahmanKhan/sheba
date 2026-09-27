@@ -15,6 +15,7 @@ const notoBengali = Noto_Sans_Bengali({
 export const metadata: Metadata = {
   title: "সেবা সহায়ক AI",
   description: "বাংলাদেশ সরকারের সেবা সম্পর্কিত প্রশ্নের উত্তর দেয় এমন AI সহকারী",
+  icons: { icon: "/govt-logo.png" },
 };
 
 export const viewport: Viewport = {

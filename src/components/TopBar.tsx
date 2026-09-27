@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useApp } from "./AppProvider";
@@ -22,7 +23,7 @@ export function TopBar() {
   return (
     <header className="topbar">
       <div className="brand">
-        <div className="brand-mark">AI</div>
+        <Image src="/govt-logo.png" alt="" width={30} height={30} className="brand-mark" priority unoptimized />
         <div className="brand-name">{tr("সরকারি সেবা সহায়ক", "Government Service Assistant")}</div>
       </div>
       <nav className="tabs" aria-label={tr("প্রধান মেনু", "Main menu")}>

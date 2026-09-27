@@ -112,8 +112,7 @@
     padding:10px 20px; box-shadow:var(--shadow);
   }
   .brand{display:flex; align-items:center; gap:9px; flex-shrink:0}
-  .brand-mark{width:30px;height:30px;border-radius:8px;background:var(--accent);color:var(--accent-contrast);
-    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px; flex-shrink:0}
+  .brand-mark{width:30px;height:30px;border-radius:8px;flex-shrink:0;object-fit:contain;background:#fff}
   .brand-name{font-weight:700; font-size:15px; white-space:nowrap}
 
   .tabs{display:flex; gap:4px; background:var(--surface-2); padding:4px; border-radius:10px; flex-wrap:wrap}
